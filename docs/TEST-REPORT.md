@@ -52,8 +52,31 @@ of which replayed the whole transcript. Fixed per-call cost 15,158 → 15,785 ch
 15,800): the draw route, the appendix switch, redraw-as-first-principle and the note rule,
 paid for by trimming docstring and prompt duplication.
 
-NOT run here: GUI `npm test`/`npm run build`, the Playwright smoke, the DMG build, signing
-and native-Mac integration. Those remain release gates, unchanged by this work.
+NOT run in that scratch tree: GUI `npm test`/`npm run build`, the Playwright smoke, the DMG
+build, signing and native-Mac integration. Those gates ran in the release build below.
+
+## 2026-09-17 — signed, notarized release build
+
+Assembled fresh with `scripts/assemble.py` into `/Users/steve/Developer/fp-studio-release-0.3.0` from the pinned
+commits, then `packaging/build_fp_studio_dmg.sh --release` with a Developer ID identity and an App Store Connect
+notary key.
+
+| Check | Result |
+|---|---|
+| Design rules staged into the bundle | `fp-design-system@5d9787297db0`, `fp-design-table@5c8fb12a2bfa`, `fp-design-chart@3f9555a834ff`, `fp-design-flowchart@dbc5e15f5c38`, `fp-design-reproduce@d61169d6cc1b` |
+| Python gate in the assembled tree (real resvg, real permission integration, supplied fonts) | 127 passed |
+| fp-kit `npm test` | 189 tests / 27 files passed |
+| Original GUI unit tests + production build | passed |
+| Fork shell smoke E2E (`e2e/fp-smoke.spec.ts`) | 2 passed |
+| Container signature | `Developer ID Application: Hyunmin kim (KH55W9G87F)`, team `KH55W9G87F`, timestamp 2026-09-17 09:54:58 |
+| Notarization | `status: Accepted`, ticket stapled, `stapler validate` worked |
+| Gatekeeper on the built app and DMG | `accepted — source=Notarized Developer ID` |
+| Mounted DMG contents | 9 rule files (5 cards + 4 appendices), 9 Pretendard weights with `OFL.txt`, Node v22.16.0, 3,724 hashed entries in `BUILD-MANIFEST.json` |
+| Published asset re-downloaded anonymously | 177,984,419 bytes, sha256 `610eaf219023f63f7431fda16aa273436f8a84c753c42b7307fc1b9b6d8ba0ee` — identical to the built DMG |
+| Quarantined copy of that download | `accepted — source=Notarized Developer ID`, ticket validates |
+
+Still not run: installation on a separate clean Mac, and a full live-provider research → draft → revision →
+publish conversation.
 
 ## Reassembly equivalence
 

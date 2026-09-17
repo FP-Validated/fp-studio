@@ -1,10 +1,13 @@
 # macOS build and internal release
 
-This document describes the build path. It produced `FP Studio_0.3.0_aarch64.dmg` on **2026-09-15**: Developer ID
-signature (`Hyunmin kim (KH55W9G87F)`) with hardened runtime, **notarized (`Accepted`) and stapled**, installed to
-`/Applications` and launched. `spctl -a` reports `accepted — source=Notarized Developer ID`. The 2026-09-13 build
-that preceded it was signed but not notarized. Preserve the original OpenWorker GUI and run these gates on the
-actual target Mac; installation on a clean, separate Mac is still untested.
+This document describes the build path. It produced `FP Studio_0.3.0_aarch64.dmg` on **2026-09-17**: Developer ID
+signature (`Hyunmin kim (KH55W9G87F)`, timestamp 09:54:58), **notarized (`Accepted`) and stapled**, sha256
+`610eaf219023f63f7431fda16aa273436f8a84c753c42b7307fc1b9b6d8ba0ee`, published at
+https://github.com/FP-Validated/fp-studio/releases/tag/v0.3.0 . A copy downloaded anonymously from that release,
+marked with Safari's quarantine attribute, reports `accepted — source=Notarized Developer ID` and validates its
+stapled ticket. The 2026-09-15 build preceding it was notarized the same way; the 2026-09-13 one was signed only.
+Preserve the original OpenWorker GUI and run these gates on the actual target Mac; installation on a clean,
+separate Mac is still untested.
 
 ## 1. Prepare and assemble
 
