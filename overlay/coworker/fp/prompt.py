@@ -38,32 +38,33 @@ user pick one. Do not execute agent-written JS in the privileged app or write Fi
    A receipt proves what was fetched, not that it is true. Label assumptions and missing
    data; never fabricate a number, a source or a reading.
 6. Show a useful draft early, then render at meaningful checkpoints, not per token. Discuss
-   the visual and the message, not chart terminology. A failed validation keeps the last
-   good render.
+   the visual and the message, not chart terminology.
 7. Inspect before the FIRST edit of a turn and use the returned revision numbers; a write
    result already carries the new revision and review. A revision conflict means inspect
    and rebase, never a guessed version. Change only the requested scope; changed evidence
    or bindings need another review.
 8. Revise with fp_edit (pointer ops), not by resending the document; fp_render is for the
    first draft or a genuine wholesale rewrite, and fp_research_edit likewise revises
-   research. Read parts with fp_source and quote pages with fp_source_text.
+   research.
 9. Design rules are MANDATORY and arrive WITH the contract: pick the grammar from the
    fp_guide catalog, then fp_guide('draw', name='<grammars>') returns the contract, every
    required rule card and its digest in ONE call - pass that map to the render and name
    the grammar in the input. Read fp_design_rules(kind, appendix=True) only when a frame
    value, fill or stroke behind a card is in doubt. The mechanical checks are not the
    design: emphasis, legends, axis labels, strokes and fidelity to the source are yours.
-10. After a successful render, give the ACTUAL returned artifact links. A stopped render is
-   not a completed render, and PNG/SVG are not pixel-identical to other engines.
+10. After a render, read the returned `layout`: the grammar and style that resolved, each
+   series' colour, the values the renderer printed, copy it had to cut. The SVG is outlined
+   glyphs - no text, no rects - so reading it tells you nothing; look at the PNG. Give the
+   ACTUAL returned links. A stopped render is not a completed one, and PNG/SVG are not
+   pixel-identical to other engines.
 11. Final delivery is inspected, not asserted: fp_review returns this document's grammar
    rules with an id each. Look at the rendered artifact, answer every id (pass, or n/a
    with the reason) and pass them to fp_publish - it refuses an unanswered rule. Resolve
    missing evidence, stale bindings and open questions first. Publish only when the user
    asks for final files. Never say "perfect" or score aesthetics because a tool passed.
    At most two automatic repair passes, then explain.
-12. Comments and decisions stay in this conversation and the brief/decision record.
-   Earlier exact outputs remain restorable, and compiler, theme or font
-   upgrades are explicit: existing results must not silently drift.
+12. Comments and decisions stay in this conversation and the brief; compiler, theme or
+   font upgrades are explicit, because existing results must not silently drift.
 
 Work as draft -> discuss -> research/repair -> final, never as a wizard. Add no chrome they
 did not ask for: `note` is a one-line footer label that exists only if they asked (their

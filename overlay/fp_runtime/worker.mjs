@@ -5,7 +5,7 @@ import { Resvg, initWasm } from '@resvg/resvg-wasm';
 import { validateRequest, validateFrame, stableStringify, sha256, ensureStatic } from './lib/contracts.mjs';
 import { inspectFont, requireGlyphCoverage } from './lib/fonts.mjs';
 const ROOT=path.dirname(fileURLToPath(import.meta.url));
-const COMMIT='5acc411000dcb76baa1b9dc841f9385d1bf42aa0';
+const COMMIT='2a22c2632177c5b8bea397169ec7fcbfcd664688';
 const MAX=2*1024*1024;
 async function main() {
   let raw='';
@@ -70,9 +70,11 @@ async function main() {
   }
   const fingerprint={compiler:COMMIT,runtime:'0.3.0',node:process.version,resvg:'2.6.2',
     code:codeFiles(path.join(kitRoot,'dist/src')),theme,fonts:fontReceipts};
+  // The delivered SVG is outlined glyphs, so the frame has to say what it drew itself.
   process.stdout.write(JSON.stringify({ok:true,svg,png_base64:png.toString('base64'),
     input_hash:sha256(stableStringify(req.input)),compiler:'fp-kit/'+COMMIT,
     renderer_fingerprint:sha256(stableStringify(fingerprint)),frame:result.program.frame,
+    layout:fp.describeProgram(result,req.input),
     audit:result.audit,theme,fonts:fontReceipts}));
 }
 main().catch(e=>{

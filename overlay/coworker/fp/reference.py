@@ -379,6 +379,32 @@ def _named(edges: list[tuple[str, str]], nodes: dict[str, str]) -> set[tuple[str
     return {(nodes.get(a, _norm(a)), nodes.get(b, _norm(b))) for a, b in edges}
 
 
+# The shape a redraw has to write. Published through fp_guide('draw', redraw=True) because
+# the alternative is what one conversation actually did: read an unrelated document's
+# stored `reference` with three fp_source calls to copy its shape.
+CONTRACT = {
+    "reference": {
+        "source_id": "<the id fp_capture_image / fp_capture_source returned>",
+        "title": "the source's own headline, if it has one",
+        "note": "the source's own footnote, if it has one",
+        "reading": "what the source says, in one line",
+        "blocks": [
+            "one entry per block of the source, in reading order, each with the kind you "
+            "read off it: {'kind': 'chart', 'template': 'bar', 'categories': [...], "
+            "'series': [{'label': ..., 'values': [...]}]}, {'kind': 'table', 'columns': "
+            "[...], 'rows': [...]}, or {'kind': 'diagram', 'nodes': [{'id': ..., 'label': "
+            "...}], 'edges': [{'from': ..., 'to': ..., 'label': ...}]}",
+        ],
+    },
+    "gate": "The render compares the drawn document against this transcription: block "
+            "sequence, node and edge wiring, every number under "
+            + ", ".join(sorted(DATA_KEYS)) + " and every label under "
+            + ", ".join(sorted(LABEL_KEYS)) + ". A difference is refused, not warned. To "
+            "draw something other than the source, record the user's words in "
+            "`referenceWaiver` instead.",
+}
+
+
 def validate(reference: Any) -> dict:
     """Structural validation of the `reference` block itself."""
     if not isinstance(reference, dict):

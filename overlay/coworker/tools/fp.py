@@ -234,6 +234,10 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
                         'rule call is needed; fp_design_rules(kind, appendix=True) serves '
                         'a frame value or exact stroke behind a card when one is in doubt.',
             }
+            if redraw:
+                # The shape of the transcription the render gate demands. Without it the
+                # only way to learn it is to read another document's stored reference.
+                payload['reproduce'] = reference_mode.CONTRACT
             for served in (key, 'input', *(f'grammar:{n}' for n in names),
                            *(f'rules:{n}' for n in needed)):
                 store.mark_served(served)
@@ -345,8 +349,7 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
         input_json is the whole semantic document, so any later change belongs in fp_edit.
         Expected revisions are mandatory (CAS). design_rules is the {skill: digest} map
         fp_guide('draw') returns, and the document is mechanically checked against the
-        decidable rules before anything is rendered. runtime_upgrade must be explicit when
-        a stored document's compiler/theme/font fingerprint changed.
+        decidable rules before anything is rendered.
         """
         value=loads(input_json)
         if not isinstance(value,dict):
@@ -395,7 +398,7 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
         old=current['receipt'].get('renderer_fingerprint') if current else None
         if old and old!=fingerprint and not runtime_upgrade:
             raise ValueError('Compiler/theme/fonts changed. Discuss the upgrade, then explicitly render with runtime_upgrade=true. Prior artifacts are preserved.')
-        receipt={k:result.get(k) for k in ('compiler','renderer_fingerprint','input_hash','frame','audit','fonts','theme')}
+        receipt={k:result.get(k) for k in ('compiler','renderer_fingerprint','input_hash','frame','audit','fonts','theme','layout')}
         # Which design rules (and which exact revision of them) governed this render.
         receipt['design_rules']={n:design.digest(n) for n in rules['design_rules']}
         if redrawn is not None:
@@ -412,10 +415,14 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
              'receipt':{k:committed.get(k) for k in
                         ('compiler','renderer_fingerprint','source_sha256','design_rules','reference','status')},
              'audit':committed.get('audit'),
+             # What the renderer actually laid out. The delivered SVG is outlined glyphs -
+             # no text nodes, every rect a path - so reading it answers nothing and costs
+             # tens of thousands of tokens. This is the readback; the PNG is the picture.
+             'layout':committed.get('layout'),
              '_display':{'fp_preview':{'path':f'fp/{name}.svg','revision':state['revision']}} if not state['cache_error'] else {},
-             'artifacts':{'svg':f'fp/{name}.svg','png':f'fp/{name}.png'},
+             'artifacts':{'png':f'fp/{name}.png','svg':f'fp/{name}.svg (outlined glyphs; read the PNG, not this)'},
              'review':_review_summary(review_document(store,name)),
-             'notice':'Draft rendered. Discuss the result with the user; do not claim final verification.'}
+             'notice':'Draft rendered. Check `layout` against the source, then discuss the result with the user; do not claim final verification.'}
         if applied is not None:
             out['ops_applied']=applied
         return out

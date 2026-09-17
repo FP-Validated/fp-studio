@@ -146,6 +146,24 @@ steps for one frame.
 | Chart document's mandatory reading | 2,649-char card, 7,485 with the index card (cap 7,500) |
 | The reported chart, rendered through the staged bundle and read back as an image | legend, group headings, per-row unit, two bars per row, both values and the change column; `$0.58` against `$9.50` is a stub, not half a bar |
 
+## 2026-09-17 — 0.3.4: nothing could read back what was drawn
+
+The same 24-step trace read the rendered SVG twice and then grepped the codebase for two
+hex colours. An outlined SVG has no text nodes and no rects, so both reads answered
+nothing — and every tool result is re-sent on each later model call of the turn.
+
+| Defect | Root cause | Fix and its test |
+|---|---|---|
+| A render could only be checked by reading its SVG, twice, and grepping hexes out of the source | The render result advertised `fp/<name>.svg` and nothing described the layout. The SVG is outlined glyphs: no `<text>`, every `<rect>` a path | `describeProgram(result, input)` → `layout` on the render result and in the committed receipt: resolved grammar/style per block, colour mode, legend swatch per series with its hex, strings the renderer derived rather than copied, clipped copy with what a reader sees, renderer warnings. Authored copy is not echoed. Kit test asserts the swatch hexes, a formatted value in `derived`, authored copy absent from it and a clipped cell named; live test asserts the same through the shipped compiler and that the receipt keeps it |
+| The redraw route demanded a `reference` transcription whose shape was published nowhere | The FPInput contract declares research references, not the reproduce block; the fidelity gate's compared keys lived only in `reference.py` | `reference.CONTRACT` — one definition, served as `reproduce` by `fp_guide('draw', name, redraw=True)`, naming the five accepted fields, the per-kind block shapes and every key the gate compares. Test asserts the fields match `validate`'s allow-list and that the gate text names the compared keys and `referenceWaiver` |
+
+| Check | Result |
+|---|---|
+| fp-kit | 48 passed |
+| Assembled tree, every FP suite | 2,172 passed, 1 skipped |
+| Fixed per-call cost | 15,748 chars against the 15,800 cap. The readback instruction was paid for by deleting three sentences that restated tool mechanics the docstrings and error messages already carry |
+| Layout readback, rendered through the staged bundle | `{template: bar, style: paired}`, `colorMode: pair`, swatches `A #4F86C6` / `B #5BA86B` — the two hexes the trace grepped for — `839,800,000` in `derived`, `Validators` absent, no clipping |
+
 ## Reassembly equivalence
 
 `python scripts/assemble.py --dest /tmp/fp-verify-8 --openworker-source ~/Developer/fp-studio-v0.3

@@ -289,6 +289,25 @@ def test_inspect_offers_the_supplied_source_before_anything_is_rendered(tools, t
     assert json.dumps(out["references"]).count("base64") == 0
 
 
+def test_the_redraw_route_publishes_the_transcription_it_demands(tools, tmp_path):
+    """The shape of `reference`, on the route that requires it.
+
+    A conversation that had already asked for the draw contract went on to read an
+    unrelated document's stored `reference` with three fp_source calls, because the route
+    that demands the transcription never said what one looks like.
+    """
+    plain = tools["fp_guide"]("draw", "table")
+    assert "reproduce" not in plain
+    redraw = tools["fp_guide"]("draw", "bar", True)
+    contract = redraw["reproduce"]
+    assert set(contract["reference"]) == {"source_id", "blocks", "title", "note", "reading"}
+    # Every key the fidelity gate compares is named by the contract that asks for it, so
+    # the two cannot drift apart.
+    for key in ("values", "categories", "label", "delta"):
+        assert key in contract["gate"] or key in json.dumps(contract["reference"])
+    assert "referenceWaiver" in contract["gate"]
+
+
 # -- the wiring is the content --------------------------------------------------------
 
 
