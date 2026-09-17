@@ -106,6 +106,25 @@ only, one `fp_guide('draw')` is the whole briefing, and the truncation warning t
 agent grepping the SVG is gone because the layout no longer truncates. Fixed per-call cost
 stayed at 15,796 characters (cap 15,800) by deleting duplicated prose.
 
+## 2026-09-17 — 0.3.2: the table head and the column widths
+
+Two more defects, both visible in a user screenshot of a 0.3.1 frame beside a correctly
+built reference.
+
+| Defect | Root cause | Fix and its test |
+|---|---|---|
+| The column labels sat on the surface's top edge, on top of the first row | `headerH = pitch`, so a document that lowered `rowPitch` (what an agent does when it is trying to make room for clipped text) shrank the band below its own label height and the label's centring offset went negative | `headerH = max(pitch, lineHeight(headerRole) + pad)`. Kit test renders `rowPitch: 40` and asserts the label's box lies inside the band |
+| A 120-character status sentence pulled width out of every other column, so "Custody & recordkeeping" wrapped onto two lines | Over-wide tables shrank every column in proportion to its content | Width is capped largest-first (binary search on the cap, floors respected): a column that fits keeps its natural width, the deficit comes out of the long prose column. Kit test asserts the key column stays on one line |
+
+| Check | Result |
+|---|---|
+| fp-kit | 44 passed |
+| Assembled tree, every FP suite / Node runtime / GUI unit + build / shell smoke E2E | 165 / 27 / passed / 2 passed |
+| DMG `FP Studio_0.3.2_aarch64.dmg` | 177,991,569 bytes, sha256 `15f6cf23b9939a7e9f26e0aade2248bd77d4c81b8e66fb44facd65bc00ca8b73` |
+| Signature, notarization, Gatekeeper | `Developer ID Application: Hyunmin kim (KH55W9G87F)`, timestamp 11:13:21, notary `Accepted`, stapled and validated, `accepted — source=Notarized Developer ID` |
+| Compiler pinned inside the bundle | `fp-kit/ecf6d9c0b881a98ccfa8871a7dec86e8c5e799e6` |
+| The reported table through the staged bundle, default pitch and `rowPitch: 40` | both committed with no audit findings; read back as images: labels inside the head in both, key column on one line, rules under the header and between rows |
+
 ## Reassembly equivalence
 
 `python scripts/assemble.py --dest /tmp/fp-verify-8 --openworker-source ~/Developer/fp-studio-v0.3

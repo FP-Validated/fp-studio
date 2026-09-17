@@ -1,13 +1,13 @@
 # macOS build and internal release
 
-This document describes the build path. It produced `FP Studio_0.3.1_aarch64.dmg` on **2026-09-17**: Developer ID
-signature (`Hyunmin kim (KH55W9G87F)`, timestamp 10:47:23), **notarized (`Accepted`) and stapled**, sha256
-`9cf9ca43858f227a870c1380d5f30a619f4ced21204b769ee0fde372decb0582`, published at
-https://github.com/FP-Validated/fp-studio/releases/tag/v0.3.1 . The 0.3.0 build of the same day was notarized the
-same way, and its DMG was withdrawn from the release because every attached-image redraw was broken in it. A copy
-downloaded anonymously, carrying the browser's quarantine attribute, reports `accepted — source=Notarized
-Developer ID` and validates its stapled ticket. Preserve the original OpenWorker GUI and run these gates on the
-actual target Mac; installation on a clean, separate Mac is still untested.
+This document describes the build path. It produced `FP Studio_0.3.2_aarch64.dmg` on **2026-09-17**: Developer ID
+signature (`Hyunmin kim (KH55W9G87F)`, timestamp 11:13:21), **notarized (`Accepted`) and stapled**, sha256
+`15f6cf23b9939a7e9f26e0aade2248bd77d4c81b8e66fb44facd65bc00ca8b73`, published at
+https://github.com/FP-Validated/fp-studio/releases/tag/v0.3.2 . The 0.3.0 and 0.3.1 builds of the same day were
+notarized the same way; both DMGs were withdrawn from their releases because they drew tables wrong (0.3.0 also
+broke every attached-image redraw). A copy downloaded anonymously, carrying the browser's quarantine attribute,
+reports `accepted — source=Notarized Developer ID` and validates its stapled ticket. Preserve the original
+OpenWorker GUI and run these gates on the actual target Mac; installation on a clean, separate Mac is untested.
 
 ## 1. Prepare and assemble
 

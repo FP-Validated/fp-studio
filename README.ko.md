@@ -150,7 +150,7 @@ python scripts/assemble.py \
   --fp-kit-source /path/to/fp-infographic-agent-kit
 ```
 
-OpenWorker 원본은 `5bc10d928e0b64aae74313349a3b17bd19643ae2`, FP kit는 `18518aef6147c481877196047b232af2ff14cb7d`에 고정한다. 원본 anchor가 다르면 조립을 중단한다. npm의 전이 의존성 lock은 해당 설치에서 생성/검증하고 release에 보관해야 한다. 이 archive는 확인하지 못한 lock/integrity 값을 만들어 넣지 않았다.
+OpenWorker 원본은 `5bc10d928e0b64aae74313349a3b17bd19643ae2`, FP kit는 `ecf6d9c0b881a98ccfa8871a7dec86e8c5e799e6`에 고정한다. 원본 anchor가 다르면 조립을 중단한다. npm의 전이 의존성 lock은 해당 설치에서 생성/검증하고 release에 보관해야 한다. 이 archive는 확인하지 못한 lock/integrity 값을 만들어 넣지 않았다.
 
 ## Mac 개발 실행
 

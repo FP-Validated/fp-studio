@@ -17,7 +17,7 @@ def test_real_fp_compiler_to_svg_png_and_revision(tmp_path):
     rules=json.dumps({n:design.digest(n) for n in design.required(source)})
     first=tools['fp_render'](json.dumps(source,ensure_ascii=False),0,0,rules)
     assert first['ok'] and first['committed']
-    assert first['receipt']['compiler'].startswith('fp-kit/18518aef')
+    assert first['receipt']['compiler'].startswith('fp-kit/ecf6d9c0')
     a=Store(tmp_path).get('infographic')
     # Font identity is committed with the revision; the tool result stays small because
     # every tool result is replayed on each later model call.
