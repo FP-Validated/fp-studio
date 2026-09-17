@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import math
 from pathlib import Path
 import re
 import struct
@@ -57,10 +58,24 @@ DATA_KEYS = frozenset({
     "value", "values", "y", "y2", "amount", "count", "percent", "share", "total",
     "delta", "min", "max", "target", "from", "to",
 })
+# A row IS data: a grammar names its own columns, so the key a value sits under is the
+# author's word, not a contract. `fields: {value: 'Index'}` used to put every number in
+# the frame outside the gate's sight - which is how seven bars indexed to 100 shipped
+# against a source that said 146, 22, 48.
+ROW_KEYS = frozenset({"rows", "items", "series", "points"})
+# Inside a row, these name or place the row; they are not measurements of the source.
+ROW_NON_DATA = frozenset({"id", "accent", "accentKey", "highlight", "group", "kind"})
 # Keys whose strings NAME something the source named.
 LABEL_KEYS = frozenset({
     "label", "labels", "category", "categories", "name", "series", "legend", "axis",
 })
+# `fields` maps a ROLE to a column name. Only `columns` is painted (the legend names the
+# series); `category`, `value`, `unit`, `delta` and `group` name columns whose CONTENTS
+# are drawn, never the column name, so reading them as copy invents a rename that is not
+# on the frame.
+FIELD_LABEL_KEYS = frozenset({"columns"})
+_NUMBER = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
+_MAGNITUDE = {"k": 1e3, "m": 1e6, "b": 1e9, "t": 1e12, "%": 1.0}
 _WS = re.compile(r"\s+")
 
 # -- what counts as a structure the user pasted -------------------------------------
@@ -318,20 +333,54 @@ def _norm(text: Any) -> str:
     return _WS.sub(" ", str(text)).strip().casefold()
 
 
-def _numbers(value: Any, keys: frozenset[str], out: list[float], inside: bool = False) -> None:
+def _numbers_in(text: str, out: list[float]) -> None:
+    """Numbers a reader would see in a string, plus the magnitude its suffix declares.
+
+    A source prints `839.8M`; a redraw may write either that string or 839800000, and
+    both mean the same measurement.
+    """
+    for match in _NUMBER.finditer(text):
+        try:
+            parsed = float(match.group(0).replace(",", ""))
+        except ValueError:
+            continue
+        out.append(parsed)
+        suffix = text[match.end():match.end() + 1].lower()
+        scale = _MAGNITUDE.get(suffix)
+        if scale and scale != 1.0:
+            out.append(parsed * scale)
+
+
+def _numbers(value: Any, keys: frozenset[str], out: list[float],
+             inside: bool = False, in_row: bool = False) -> None:
     if isinstance(value, dict):
         for key, item in value.items():
-            _numbers(item, keys, out, key in keys)
-    elif isinstance(value, list):
+            if key in ROW_NON_DATA:
+                continue
+            _numbers(item, keys, out, key in keys, in_row or key in ROW_KEYS)
+        return
+    if isinstance(value, list):
         for item in value:
-            _numbers(item, keys, out, inside)
-    elif inside and isinstance(value, (int, float)) and not isinstance(value, bool):
+            _numbers(item, keys, out, inside, in_row)
+        return
+    if not (inside or in_row):
+        return
+    if isinstance(value, bool):
+        return
+    if isinstance(value, (int, float)):
         out.append(float(value))
+    elif isinstance(value, str):
+        _numbers_in(value, out)
 
 
 def _labels(value: Any, keys: frozenset[str], out: list[str], inside: bool = False) -> None:
     if isinstance(value, dict):
         for key, item in value.items():
+            if key == "fields" and isinstance(item, dict):
+                for role, column in item.items():
+                    if role in FIELD_LABEL_KEYS:
+                        _labels(column, keys, out, True)
+                continue
             _labels(item, keys, out, key in keys)
     elif isinstance(value, list):
         for item in value:
@@ -397,11 +446,13 @@ CONTRACT = {
         ],
     },
     "gate": "The render compares the drawn document against this transcription: block "
-            "sequence, node and edge wiring, every number under "
-            + ", ".join(sorted(DATA_KEYS)) + " and every label under "
-            + ", ".join(sorted(LABEL_KEYS)) + ". A difference is refused, not warned. To "
-            "draw something other than the source, record the user's words in "
-            "`referenceWaiver` instead.",
+            "sequence, node and edge wiring, EVERY number in a data row - whatever column "
+            "you named it - plus numbers under "
+            + ", ".join(sorted(DATA_KEYS)) + ", and every label under "
+            + ", ".join(sorted(LABEL_KEYS)) + ". A value the transcription does not hold "
+            "is refused, not warned: `839.8M` and 839800000 are the same measurement, an "
+            "index of 100 against a source that says 146 is not. To draw something other "
+            "than the source, record the user's words in `referenceWaiver` instead.",
 }
 
 
@@ -518,7 +569,13 @@ def fidelity_violations(value: Any) -> list[str]:
     _numbers(reference, DATA_KEYS, source_numbers)
     document_numbers: list[float] = []
     _numbers(drawn, DATA_KEYS, document_numbers)
-    invented = sorted({n for n in document_numbers if n not in set(source_numbers)})
+    # A source that prints `839.8M` and a redraw that writes 839800000 agree; float
+    # arithmetic on the expansion does not land on the same bits, so compare closely.
+    known = sorted(set(source_numbers))
+    invented = sorted({
+        n for n in document_numbers
+        if not any(math.isclose(n, k, rel_tol=1e-9, abs_tol=1e-9) for k in known)
+    })
     if invented:
         problems.append(
             "these values are not in the transcription of the source: "

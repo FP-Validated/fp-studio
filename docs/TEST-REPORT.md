@@ -164,6 +164,26 @@ nothing — and every tool result is re-sent on each later model call of the tur
 | Fixed per-call cost | 15,748 chars against the 15,800 cap. The readback instruction was paid for by deleting three sentences that restated tool mechanics the docstrings and error messages already carry |
 | Layout readback, rendered through the staged bundle | `{template: bar, style: paired}`, `colorMode: pair`, swatches `A #4F86C6` / `B #5BA86B` — the two hexes the trace grepped for — `839,800,000` in `derived`, `Validators` absent, no clipping |
 
+## 2026-09-17 — 0.3.5: the gate could not see the values it was guarding
+
+The user put the source image next to what FP Studio delivered: seven bars of equal
+length, each printed `100`, against a source that says 146, 22, 48, 839.8M, 7.0%, $9.50,
+$3.82M. The frame committed, and one call earlier the model had read the document's own
+JSON and called it identical to the image.
+
+| Defect | Root cause | Fix and its test |
+|---|---|---|
+| A redraw that indexed a series to 100 was drawn and committed against a captured source | The numeric fidelity check collected numbers by KEY NAME (`value`, `values`, `percent`, …). A grammar names its own columns, so `fields: {value: 'Index'}` put every number in the frame outside the gate's sight | Every number inside a data row is data, whatever the column is called (`ROW_KEYS`, minus `id`/`accent`/`group`). Numbers inside strings are read too, with the magnitude their suffix declares, so `839.8M` and 839800000 are one measurement. Comparison is `math.isclose`, because the expansion is float arithmetic. Test renders the exact shipped shape through `fp_render` and asserts the refusal names `100` and that nothing was committed |
+| Widening the check could refuse faithful redraws | A transcription that keeps the source's strings yields no numbers at all under the old rule; under the new one, every row number would be "invented" | Both sides parse strings the same way. Test asserts a verbatim redraw (`'839.8M'`) and a magnitude-expanded one (`839800000`) against the same transcription both pass, and that the verbatim one commits |
+| `fields: {category: 'Measure'}` was reported as renaming the source | `category` is a LABEL_KEY, so the role map's column NAME was read as painted copy. The frame never paints it | `fields` is a role map, not copy: only `columns` (the legend) is checked. Test asserts `'measure'` is not reported |
+| A committed revision could stay unfaithful and be declared correct | Nothing re-checked a stored document; only a human holding the source next to the frame could tell | `fp_inspect` returns `reference_drift` for any stored document that carries a `reference`. Test commits a drifted revision behind the gate and asserts inspect names it |
+
+| Check | Result |
+|---|---|
+| Assembled tree, every FP suite | 2,174 passed, 1 skipped (2,172 before the four new assertions) |
+| The shipped failure, replayed against the gate | refused: `these values are not in the transcription of the source: 58, 59, 100` plus the renamed legend `'index', 'now'` |
+| A faithful redraw, verbatim and expanded | no violations either way |
+
 ## Reassembly equivalence
 
 `python scripts/assemble.py --dest /tmp/fp-verify-8 --openworker-source ~/Developer/fp-studio-v0.3

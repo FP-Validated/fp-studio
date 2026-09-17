@@ -1,15 +1,15 @@
 # macOS build and internal release
 
-This document describes the build path. It produced `FP Studio_0.3.4_aarch64.dmg` on **2026-09-17**: Developer ID
-signature (`Hyunmin kim (KH55W9G87F)`, timestamp 12:45:05), **notarized (`Accepted`) and stapled**, sha256
-`bec78e70379dcb60a75a935cad5af7c4f93251007dfdece9553c08162e25ee1a`, published at
-https://github.com/FP-Validated/fp-studio/releases/tag/v0.3.4 . The 0.3.0 through 0.3.3 builds of the same day
-were notarized the same way; the 0.3.0, 0.3.1 and 0.3.2 DMGs were withdrawn from their releases because each
-shipped a frame that was wrong in what it showed - a broken attached-image redraw, clipped table cells, a
-collapsed table head, and a bar grammar that could not hold a second series. A copy downloaded anonymously,
-carrying the browser's quarantine attribute, reports `accepted - source=Notarized Developer ID` and validates its
-stapled ticket. Preserve the original OpenWorker GUI and run these gates on the actual target Mac; installation on
-a clean, separate Mac is untested.
+This document describes the build path. It produced `FP Studio_0.3.5_aarch64.dmg` on **2026-09-17**: Developer ID
+signature (`Hyunmin kim (KH55W9G87F)`, timestamp 13:14:09), **notarized (`Accepted`) and stapled**, sha256
+`6c13af4e44ad2c328beaad97d0481d356e703b850037cfee7ebe411ffd3d9b29`, published at
+https://github.com/FP-Validated/fp-studio/releases/tag/v0.3.5 . The 0.3.0 through 0.3.4 builds of the same day were
+notarized the same way and all five DMGs were withdrawn from their releases, because each shipped a frame that was
+wrong in what it showed - a broken attached-image redraw, clipped table cells, a collapsed table head, a bar
+grammar that could not hold a second series, and a reproduce gate that could not see a value stored under a column
+the author named. A copy downloaded anonymously, carrying the browser's quarantine attribute, reports
+`accepted - source=Notarized Developer ID` and validates its stapled ticket. Preserve the original OpenWorker GUI
+and run these gates on the actual target Mac; installation on a clean, separate Mac is untested.
 
 ## 1. Prepare and assemble
 

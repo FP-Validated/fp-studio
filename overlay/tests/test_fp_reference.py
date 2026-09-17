@@ -104,6 +104,94 @@ def redraw(source_id: str, **overrides) -> dict:
     return document
 
 
+# -- the frame that shipped ---------------------------------------------------------
+
+
+def test_indexing_a_series_to_100_under_a_column_of_its_own_is_refused(tools, tmp_path):
+    """The exact frame a user received: seven bars of equal length, each printed `100`.
+
+    The source said 146, 22, 48, 839.8M. The redraw indexed one series to 100 and drew
+    that, and the gate let it through: a grammar names its own columns, so the numbers sat
+    under `Index`, not under `value`, and the numeric check only looked at a fixed list of
+    key names. Every number in a data row is data, whatever the author called the column.
+    """
+    receipt = captured(tmp_path)
+    rows = [{"id": "v", "Measure": "Validators", "Index": 100},
+            {"id": "c", "Measure": "Countries", "Index": 100},
+            {"id": "s", "Measure": "Total staked", "Index": 100}]
+    document = {
+        "title": "In two years, Aptos validator revenue fell 96%",
+        "reference": {
+            "source_id": receipt["id"],
+            "blocks": [{"kind": "chart", "template": "bar",
+                        "categories": ["Validators", "Countries", "Total staked"],
+                        "series": [{"label": "Oct 29, 2024",
+                                    "values": ["146", "22", "839.8M"]}]}],
+        },
+        "blocks": [{"kind": "chart", "template": "bar", "rows": rows,
+                    "fields": {"category": "Measure", "value": "Index"}}],
+    }
+    with pytest.raises(ValueError) as refusal:
+        tools["fp_render"](dumps(document), 0, 0)
+    assert "100" in str(refusal.value)
+    assert Store(tmp_path).get("infographic") is None, "nothing was committed"
+
+
+def test_a_redraw_that_keeps_the_sources_own_values_is_not_refused(tools, tmp_path):
+    """The other half of the same gate: `839.8M` and 839800000 are one measurement.
+
+    Widening the check to every row number is only safe if a faithful redraw still passes,
+    whether it keeps the source's string or writes the magnitude the string declares.
+    """
+    receipt = captured(tmp_path)
+    transcription = {
+        "source_id": receipt["id"],
+        "blocks": [{"kind": "chart", "template": "bar",
+                    "categories": ["Validators", "Total staked"],
+                    "series": [{"label": "Oct 29, 2024", "values": ["146", "839.8M"]},
+                               {"label": "Sep 15, 2026", "values": ["84", "753.2M"]}]}],
+    }
+    fields = {"category": "Measure", "columns": ["Oct 29, 2024", "Sep 15, 2026"]}
+    verbatim = {
+        "title": "Aptos validator set", "reference": transcription,
+        "blocks": [{"kind": "chart", "template": "bar", "style": "paired", "fields": fields,
+                    "rows": [{"id": "v", "Measure": "Validators",
+                              "Oct 29, 2024": "146", "Sep 15, 2026": "84"},
+                             {"id": "s", "Measure": "Total staked",
+                              "Oct 29, 2024": "839.8M", "Sep 15, 2026": "753.2M"}]}],
+    }
+    assert reference.fidelity_violations(verbatim) == []
+    assert tools["fp_render"](dumps(verbatim), 0, 0)["committed"]
+
+    expanded = copy.deepcopy(verbatim)
+    expanded["blocks"][0]["rows"][1].update({"Oct 29, 2024": 839800000, "Sep 15, 2026": 753200000})
+    assert reference.fidelity_violations(expanded) == []
+
+    # And the role map is not copy: naming a column `Measure` is not renaming the source.
+    assert not any("measure" in problem for problem in
+                   reference.fidelity_violations(dict(verbatim, title="Aptos validator set")))
+
+
+def test_inspect_names_a_committed_revision_that_no_longer_matches_its_source(tools, tmp_path):
+    """A stored frame can be unfaithful, and nothing used to say so.
+
+    The user who found the indexed frame had to hold the source next to it. The model had
+    read the document's own JSON one call earlier and called it identical.
+    """
+    receipt = captured(tmp_path)
+    faithful = redraw(receipt["id"])
+    assert tools["fp_render"](dumps(faithful), 0, 0)["committed"]
+    assert tools["fp_inspect"]()["reference_drift"] == []
+
+    # An edit that keeps the transcription and rewrites the frame is where drift enters.
+    drifted = copy.deepcopy(faithful)
+    drifted["blocks"][0]["series"][0]["values"] = [100, 100, 100]
+    Store(tmp_path).commit("infographic", 1, drifted, b"<svg/>", b"png",
+                           {"compiler": "x"}, 0)
+    drift = tools["fp_inspect"]()["reference_drift"]
+    assert drift and "100" in drift[0]
+
+
 # -- capturing the image ------------------------------------------------------------
 
 

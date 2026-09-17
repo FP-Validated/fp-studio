@@ -117,6 +117,12 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
              'receipt':{k:receipt.get(k) for k in ('compiler','renderer_fingerprint','audit','design_rules','status')},
              'research':_research_summary(research),'sources':_sources_summary(),
              'references':refs,'reference':receipt.get('reference'),
+             # A committed revision can be unfaithful - the gate widens, or the revision
+             # predates it - and then the only thing that says so is a human holding the
+             # source next to the frame. One user did; the document claimed 100 where the
+             # image said 146.
+             **({'reference_drift':reference_mode.fidelity_violations(value)}
+                if isinstance(value.get('reference'),dict) else {}),
              'artifacts':artifacts,'cache_error':cache_error,
              'review':_review_summary(review_document(store,name)),
              'read':'fp_source(pointer) reads a slice; fp_edit(ops) changes one.'}
