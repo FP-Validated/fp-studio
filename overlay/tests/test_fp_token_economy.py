@@ -22,7 +22,7 @@ from coworker.fp import design
 from coworker.fp.common import ConflictError, dumps
 from coworker.fp.patch import PatchError, apply_ops, outline
 from coworker.fp.rendering import RenderController
-from coworker.fp.research import EXCERPT_CHARS, capture_web_fetch
+from coworker.fp.research import review_document
 from coworker.fp.store import Store
 from coworker.tools.fp import WRITE_TOOLS, fp_tools
 
@@ -179,7 +179,7 @@ def test_inspect_summarises_research_without_the_excerpts(tmp_path, tools):
     store = Store(tmp_path)
     page = 'Network A reported 41.2 percent in Q3. ' + 'context filler. ' * 400
     src = store.capture('https://example.test/q3', page,
-                        {'kind': 'web_fetch', 'origin': 'transport', 'truncated': False})
+                        {'kind': 'local_file', 'origin': 'transport', 'truncated': False})
     excerpt = 'Network A reported 41.2 percent in Q3.'
     tools['fp_research'](dumps({
         'brief': {'goal': 'g', 'audience': 'a', 'main_message': 'm', 'as_of': '2026-09-13'},
@@ -212,7 +212,7 @@ def test_source_text_pages_and_searches_the_captured_page(tmp_path, tools):
     store = Store(tmp_path)
     page = 'head. ' * 500 + 'THE NUMBER IS 41.2 percent. ' + 'tail. ' * 500
     src = store.capture('https://example.test/p', page,
-                        {'kind': 'web_fetch', 'origin': 'transport', 'truncated': False})
+                        {'kind': 'local_file', 'origin': 'transport', 'truncated': False})
     first = tools['fp_source_text'](src['id'], limit=1000)
     assert first['total_chars'] == len(page) and len(first['text']) == 1000
     assert first['next_offset'] == 1000
@@ -235,35 +235,30 @@ def test_history_stays_flat_as_revisions_accumulate(tools):
     assert chars(listing) < 2_000
 
 
-# ---------------------------------------------------------------- web_fetch
+# ---------------------------------------------------------------- no web surface
 
-def test_web_fetch_returns_the_head_and_keeps_the_whole_page(tmp_path):
-    page = 'Network A reported 41.2 percent. ' + 'filler. ' * 5_000
-    wrapped = capture_web_fetch(
-        lambda url: {'url': url, 'text': page, 'content_type': 'text/html', 'truncated': False},
-        tmp_path)
-    out = wrapped('https://example.test/report')
-    assert len(out['text']) == EXCERPT_CHARS < len(page)
-    assert out['text'] == page[:EXCERPT_CHARS]
-    assert out['fp_excerpt']['total_chars'] == len(page)
-    sid = out['fp_evidence']['id']
-    assert out['fp_excerpt']['source_id'] == sid
-    assert Store(tmp_path).source(sid)['text'] == page   # provenance keeps every byte
+def test_the_fp_build_registers_no_web_search_or_fetch():
+    """The product draws what the user hands over; there is no page to research.
 
-
-def test_web_fetch_leaves_a_short_page_alone(tmp_path):
-    wrapped = capture_web_fetch(
-        lambda url: {'url': url, 'text': 'short page', 'truncated': False}, tmp_path)
-    out = wrapped('https://example.test/s')
-    assert out['text'] == 'short page' and 'fp_excerpt' not in out
+    A user attached two source images and asked for two infographics. The model searched
+    the web, read four pages and composed frames out of them instead - and the numbers on
+    the delivered frame came from a page, not from the image in the message. The capability
+    is removed rather than discouraged: an instruction competes with the tool that is
+    right there, and the tool wins.
+    """
+    from coworker import agent as agent_mod
+    import inspect
+    source = inspect.getsource(agent_mod.build_engine)
+    assert 'make_web_search_tool' not in source
+    assert 'make_web_fetch_tool' not in source
+    assert 'ask_user_tool()' in source, 'the human-in-the-loop primitive stays'
 
 
-def test_web_fetch_never_drops_text_it_could_not_store(tmp_path):
-    page = 'x' * (2 * 1024 * 1024)   # over the 1 MiB capture limit: no receipt
-    wrapped = capture_web_fetch(lambda url: {'url': url, 'text': page}, tmp_path)
-    out = wrapped('https://example.test/big')
-    assert out['text'] == page and 'fp_evidence' not in out
-    assert 'exceeds 1 MiB' in out['fp_evidence_error']
+def test_no_fp_tool_routes_to_the_web(tools):
+    names = {name for name in tools if name.startswith('fp_')}
+    surface = json.dumps([tools[n].__doc__ or '' for n in sorted(names)])
+    for word in ('web_fetch', 'web_search', 'URL', 'http'):
+        assert word not in surface, f'{word} is still advertised by an FP tool'
 
 
 # ---------------------------------------------------------------- research edits
@@ -271,7 +266,7 @@ def test_web_fetch_never_drops_text_it_could_not_store(tmp_path):
 def test_research_edit_revalidates_the_whole_result(tmp_path, tools):
     store = Store(tmp_path)
     src = store.capture('https://example.test/r', 'Network A has value 10.',
-                        {'kind': 'web_fetch', 'origin': 'transport', 'truncated': False})
+                        {'kind': 'local_file', 'origin': 'transport', 'truncated': False})
     tools['fp_research'](dumps({
         'brief': {'goal': 'g', 'audience': 'a', 'main_message': 'm', 'as_of': '2026-09-13'},
         'claims': [{'id': 'a', 'statement': 'value', 'status': 'unresolved',
@@ -299,7 +294,7 @@ def test_research_write_result_is_a_summary_not_an_echo(tmp_path, tools):
     store = Store(tmp_path)
     long_statement = 'A reported the figure under a stable denominator. ' * 20
     src = store.capture('https://example.test/e', 'Network A has value 10.',
-                        {'kind': 'web_fetch', 'origin': 'transport', 'truncated': False})
+                        {'kind': 'local_file', 'origin': 'transport', 'truncated': False})
     saved = tools['fp_research'](dumps({
         'brief': {'goal': 'g', 'audience': 'a', 'main_message': 'm'},
         'claims': [{'id': 'a', 'statement': long_statement, 'status': 'supported',

@@ -308,22 +308,65 @@ def reference_sources(store: Store) -> list[dict]:
     return [row for row in store.sources() if row.get("kind") in ("image", "structure")]
 
 
-def unconsumed(store: Store, value: Any) -> list[str]:
-    """Captured references this document neither transcribes nor waives.
+def waived(value: Any) -> dict[str, str]:
+    """Source id -> the user's words that excuse redrawing it.
 
-    The gate used to be opt-in: a document that simply omitted `reference` escaped
-    reproduce mode entirely, which is precisely how a pasted diagram became a new
-    invented composition. Now the choice has to be made in writing.
+    A bare `referenceWaiver: "<anything>"` used to silence the gate for EVERY supplied
+    source at once, which turned the one rule the product is built on into a sentence the
+    model could write for itself. A waiver now names the source it excuses.
+    """
+    raw = value.get("referenceWaiver") if isinstance(value, dict) else None
+    if raw is None or raw == "" or raw == {}:
+        return {}
+    if not isinstance(raw, dict):
+        raise ReferenceError(
+            "referenceWaiver names the source it excuses: "
+            '{"<source_id>": "<what the user said>"}. One id per source the user asked '
+            "you not to redraw; everything else is still redrawn"
+        )
+    out: dict[str, str] = {}
+    for sid, words in raw.items():
+        if not isinstance(words, str) or not words.strip():
+            raise ReferenceError(
+                f"referenceWaiver[{sid!r}] must quote what the user said; a waiver you "
+                "wrote yourself is not a waiver"
+            )
+        out[str(sid)] = words.strip()
+    return out
+
+
+def pending(store: Store, value: Any = None) -> list[str]:
+    """Supplied sources no document has redrawn and no user waiver excuses.
+
+    A turn that hands over two images asks for two documents: the one being rendered is
+    not responsible for the other image. What must never happen is a document composed
+    from somewhere else while a source the user supplied sits untouched.
     """
     rows = reference_sources(store)
     if not rows:
         return []
     value = value if isinstance(value, dict) else {}
-    if str(value.get("referenceWaiver") or "").strip():
-        return []
+    excused = set(waived(value)) | store.redrawn_sources()
     used = value.get("reference")
-    used_id = str(used.get("source_id")) if isinstance(used, dict) else ""
-    return [str(row.get("id")) for row in rows if str(row.get("id")) != used_id]
+    if isinstance(used, dict) and used.get("source_id"):
+        excused.add(str(used["source_id"]))
+    return [str(row.get("id")) for row in rows if str(row.get("id")) not in excused]
+
+
+def unconsumed(store: Store, value: Any) -> list[str]:
+    """The sources that make THIS document a refusal.
+
+    The gate used to be opt-in: a document that simply omitted `reference` escaped
+    reproduce mode entirely, which is precisely how a pasted diagram became a new
+    invented composition. It then over-corrected, demanding that one document account for
+    every captured source - unsatisfiable for a two-image turn, so the model wrote itself
+    a blanket waiver and went to compose from the web instead. A document that redraws
+    one supplied source is fine; one that redraws none, while a source waits, is not.
+    """
+    value = value if isinstance(value, dict) else {}
+    if isinstance(value.get("reference"), dict) and value["reference"].get("source_id"):
+        return []
+    return pending(store, value)
 
 
 # -- the transcription --------------------------------------------------------------
@@ -451,8 +494,9 @@ CONTRACT = {
             + ", ".join(sorted(DATA_KEYS)) + ", and every label under "
             + ", ".join(sorted(LABEL_KEYS)) + ". A value the transcription does not hold "
             "is refused, not warned: `839.8M` and 839800000 are the same measurement, an "
-            "index of 100 against a source that says 146 is not. To draw something other "
-            "than the source, record the user's words in `referenceWaiver` instead.",
+            "index of 100 against a source that says 146 is not. One document per source. "
+            "To draw something other than the source, quote the user: "
+            'referenceWaiver={"<source_id>": "<what they said>"}.',
 }
 
 

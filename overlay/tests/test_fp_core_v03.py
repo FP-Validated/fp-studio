@@ -10,7 +10,7 @@ import struct
 import zlib
 from coworker.fp.common import ConflictError, loads, dumps, valid_name, pointer_get
 from coworker.fp.store import Store
-from coworker.fp.research import capture_web_fetch, validate_research, review_document, capture_file
+from coworker.fp.research import validate_research, review_document, capture_file
 from coworker.fp.rendering import RenderController, validate_artifacts
 from coworker.fp import design
 from coworker.tools.fp import fp_tools, write_targets
@@ -48,7 +48,7 @@ def tools(tmp_path,monkeypatch):
     return funcs
 
 def research(store, value=10):
-    src=store.capture('https://example.test/report',f'Network A has value {value}.',{'kind':'web_fetch','origin':'transport','truncated':False})
+    src=store.capture('https://example.test/report',f'Network A has value {value}.',{'kind':'local_file','origin':'transport','truncated':False})
     return {'brief':{'goal':'Explain comparison','audience':'Researchers','main_message':'A comparison','as_of':'2026-09-11'},
             'claims':[{'id':'a','statement':'Value of A','status':'supported','source_id':src['id'],
                        'excerpt':f'Network A has value {value}.','bindings':[{'pointer':'/content/0/value','value':value}]}],
@@ -149,16 +149,17 @@ def test_nonverbatim_evidence_cannot_claim_supported(tmp_path):
     st=Store(tmp_path);v=research(st);v['claims'][0]['excerpt']='does not exist'
     with pytest.raises(ValueError):validate_research(v,st)
 
-def test_transport_capture_preserves_tool_schema_and_failure(tmp_path):
-    def web_fetch(url):return {'url':url,'text':'Actual page','truncated':True}
-    web_fetch.__coworker_schema__={'name':'web_fetch'}
-    wrapped=capture_web_fetch(web_fetch,tmp_path)
-    assert wrapped.__name__=='web_fetch'
-    assert wrapped.__coworker_schema__==web_fetch.__coworker_schema__
-    out=wrapped('https://example.test/a')
-    assert out['fp_evidence']['truncated']
-    assert Store(tmp_path).source(out['fp_evidence']['id'])['text']=='Actual page'
-    assert capture_web_fetch(lambda **k:{'error':'failed'},tmp_path)(url='x')=={'error':'failed'}
+def test_evidence_is_what_the_user_handed_over(tmp_path):
+    """There is no transport capture left to test: the web tools are not registered.
+
+    Evidence kinds are the ones a user supplies - an attached image, a pasted structure,
+    a granted file. A page the model found is not one of them.
+    """
+    st=Store(tmp_path)
+    kinds={row.get('kind') for row in st.sources()}
+    assert kinds <= {'image','structure','local_file'}
+    from coworker.fp import research as research_mod
+    assert not hasattr(research_mod,'capture_web_fetch')
 
 def test_local_capture_cannot_read_other_root(tmp_path):
     st=Store(tmp_path/'work');outside=tmp_path/'secret';outside.write_text('private')

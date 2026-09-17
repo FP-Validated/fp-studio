@@ -16,7 +16,7 @@ v0.2 should not have been presented as a production-ready DMG implementation. It
 | P1 | Old artifact read could win after a later update/session change | Latest-request helper and disposed event guards | Executed helper tests; full original GUI E2E pending |
 | P1 | Restoring old source re-rendered it with a potentially changed runtime | Restore exact archived bytes and source as a new revision | Executed restore/migration regressions |
 | P1 | Packaged guide/dependency paths depended on the dev checkout | Runtime resource detection; package kit dependencies and authoring contracts | Executed guide-path test; installed-app check pending |
-| P1 | Research lacked a reliable record of pages actually read | Capture original successful web_fetch text; immutable receipts and bound claims | Executed receipt, excerpt and stale-value tests |
+| P1 | Research lacked a reliable record of what was actually read | Evidence is the source the user supplies: immutable receipts for attachments, pasted structures and granted files, with bound claims. The web research surface is not registered at all | Executed receipt, excerpt and stale-value tests; engine registers neither web_search nor web_fetch |
 | P1 | A passed render could be mistaken for a verified final artifact | Draft versus mechanically reviewed publication; unresolved claims/questions block final export | Executed publication tests; human meaning/visual review still required |
 | P1 | A live document name could collide with a final revision filename | Separate `fp/exports/<name>/` namespace, research-versioned source reports | Executed collision/report retention regressions |
 | P1 | Fonts could silently disappear in outlining | Pretendard name and Unicode cmap preflight; missing glyphs fail | Synthetic table tests only; production font rendering pending |
@@ -25,7 +25,7 @@ v0.2 should not have been presented as a production-ready DMG implementation. It
 
 ## Source-derived versus implemented versus unverified
 
-**Read in the original source:** OpenWorker already registers web_search/web_fetch/ask_user; preserves `_display` as tool-event metadata; provides the original artifact viewer; owns provider routing and approvals. These are reused rather than replaced.
+**Read in the original source:** OpenWorker already registers ask_user (and the web tools this build deliberately drops); preserves `_display` as tool-event metadata; provides the original artifact viewer; owns provider routing and approvals. These are reused rather than replaced.
 
 **Implemented in this overlay:** SQLite revision store, FP tools, transport text capture, mechanical publication checks, bounded renderer, type/glyph guards, minimal preview behavior patches and fail-closed build scripts.
 

@@ -169,7 +169,7 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
     def fp_source_text(source_id: str, offset: int=0, limit: int=4000, find: str='') -> dict:
         """Read a window of a CAPTURED source's text, to quote a verbatim passage.
 
-        web_fetch returns only the head of a page; the receipt keeps every byte. `find`
+        A capture keeps every byte of what the user supplied. `find`
         returns the windows around each match - prefer it to paging.
         """
         record=store.source(source_id)
@@ -303,8 +303,8 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
     def fp_capture_source(path: str, name: str='infographic') -> dict:
         """Capture an already granted UTF-8 text/CSV/JSON file as a provenance receipt.
 
-        URLs go through the stock web_fetch, which captures receipts automatically; PDFs
-        through the stock attachment tools.
+        Images to redraw go through fp_capture_image; attachments and pasted structures
+        are captured already - fp_inspect lists them under `references`.
         """
         valid_name(name)
         return capture_file(store,path,roots)
@@ -386,8 +386,10 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
                 'The user supplied a source to redraw ('+', '.join(ignored[:4])+
                 "). Reproduce it: fp_inspect lists it under `references`, transcribe it "
                 'into `reference` {source_id, blocks} and keep its grammar, structure, '
-                'wiring and copy. If the user asked for something else instead, record '
-                'their words in `referenceWaiver` and compose freely.'
+                'wiring and copy. One document per source - a source another document '
+                'already redrew is done. Researching a supplied source is not redrawing '
+                "it. If the user asked for something else, quote them: "
+                'referenceWaiver={"'+ignored[0]+'": "<what they said>"}.'
             )
         current=store.get(name)
         if not current and (ws/'.fpstudio'/name/'state.json').exists():
@@ -531,6 +533,15 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
         Also refuses unresolved or conflicting claims, stale numeric bindings and failed
         compiler checks. No external upload; aesthetic review stays in chat.
         """
+        # Rendering one document per source is enough to keep drawing; delivery is where
+        # a source the user handed over and nobody redrew becomes a broken promise.
+        waiting=reference_mode.pending(store,(store.get(name) or {}).get('input'))
+        if waiting:
+            raise ValueError(
+                'The user supplied '+str(len(waiting))+' source(s) nothing has redrawn ('
+                +', '.join(waiting[:4])+"). Redraw each one, or quote the user's words "
+                'in that document\'s referenceWaiver, before publishing.'
+            )
         review=review_document(store,name)
         if review.get('revision')!=expected_revision or review.get('research_revision')!=expected_research_revision:
             raise ConflictError('Review snapshot differs from the requested publication revision')

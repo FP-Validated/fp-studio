@@ -5,7 +5,7 @@ The user's approved product is the stock OpenWorker GUI with an infographic capa
 Allowed changes:
 - Register FP capability and append product-specific instructions to the existing Cowork agent.
 - Add intrinsic FP write-risk/path rules without weakening stock permission floors.
-- Capture successful existing web_fetch results without replacing web networking or bypassing approvals.
+- Register no web search and no page fetch: FP Studio draws the source the user supplies, so the research surface is removed rather than wrapped. The upstream tool factories are untouched; the patched `build_engine` does not register them, and the upstream test that asserted registration is patched to assert its absence.
 - Attach renderer cancellation to the existing Stop mechanism.
 - Add artifact refresh/open behavior in App and RightRail, preserving their JSX and CSS.
 - Add a pure request-order helper and its tests.

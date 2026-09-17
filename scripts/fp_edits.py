@@ -17,8 +17,18 @@ EDITS: tuple[tuple[str, str, str, str], ...] = (
     (
         'coworker/agent.py',
         '        )\n    # Web search + fetch: research tools for every agent (keyless DuckDuckGo default).\n    registry.register(make_web_search_tool(secrets))\n    registry.register(make_web_fetch_tool())\n    # ask_user: the universal human-in-the-loop Q&A primitive (every agent; engine-intercepted).\n    if question_asker is not None:\n        registry.register(ask_user_tool())\n',
-        '        )\n    # Web search + fetch: research tools for every agent (keyless DuckDuckGo default).\n    registry.register(make_web_search_tool(secrets))\n    from .fp.research import capture_web_fetch\n    fetch_tool = make_web_fetch_tool()\n    registry.register(capture_web_fetch(fetch_tool, ws) if registry.get("fp_render") else fetch_tool)\n    # ask_user: the universal human-in-the-loop Q&A primitive (every agent; engine-intercepted).\n    if question_asker is not None:\n        registry.register(ask_user_tool())\n',
+        '        )\n    # FP Studio draws what the user hands over. There is no web research surface: no\n    # search, no fetch, no page to mistake for the source. A user who attaches an image\n    # asked for that image, and the one failure this product exists to prevent is a\n    # confident picture assembled from somewhere else.\n    # ask_user: the universal human-in-the-loop Q&A primitive (every agent; engine-intercepted).\n    if question_asker is not None:\n        registry.register(ask_user_tool())\n',
         'coworker/agent.py#2',
+    ),
+    (
+        'tests/test_web_search.py',
+        '    assert "web_search" in eng.registry.names()\n',
+        '    # FP Studio removes the web research surface: the tool factories still exist\n'
+        '    # upstream, but this product never registers them. A user who attaches a source\n'
+        '    # asked for that source, and a model with a search tool researches instead.\n'
+        '    assert "web_search" not in eng.registry.names()\n'
+        '    assert "web_fetch" not in eng.registry.names()\n',
+        'tests/test_web_search.py#1',
     ),
     (
         'coworker/agent.py',

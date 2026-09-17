@@ -1,56 +1,19 @@
 """Evidence receipts, editorial brief and mechanical publication checks.
 
-A captured passage is evidence of what the fetch returned, NOT proof that a claim is
-true. Source reliability, causation, aesthetics and endorsement remain review judgments.
+A captured passage is evidence of what a source said, NOT proof that a claim is true.
+Source reliability, causation, aesthetics and endorsement remain review judgments.
+
+Evidence is what the user hands over: an attached image, a pasted structure, a granted
+file. This product has no web research surface - a page the model found is not the source
+the user asked for, and the failure it exists to prevent is a confident picture assembled
+from somewhere else.
 """
 from __future__ import annotations
-from functools import wraps
 import json
 from pathlib import Path
 import re
 from .common import dumps, pointer_get
 from .store import Store
-
-
-# A fetched page returned in full is not read once - it stays in the conversation and is
-# re-sent on every later model call. Measured on a real session, page bodies were 17% of
-# ~3.9M input tokens. The receipt keeps every byte (that is what provenance needs); the
-# model gets the head and reads the rest, or searches it, with fp_source_text.
-EXCERPT_CHARS = 4000
-
-
-def capture_web_fetch(tool, workspace):
-    if workspace is None:
-        return tool
-    @wraps(tool)
-    def wrapped(*args, **kwargs):
-        result = tool(*args, **kwargs)
-        if not isinstance(result, dict) or result.get('error') or not result.get('text'):
-            return result
-        out = dict(result)
-        text = result['text']
-        try:
-            receipt = Store(workspace).capture(
-                str(result.get('url') or kwargs.get('url') or (args[0] if args else '')),
-                text,
-                {'kind':'web_fetch', 'content_type':result.get('content_type'),
-                 'truncated':bool(result.get('truncated')), 'origin':'transport'})
-            out['fp_evidence'] = receipt
-            # Only shorten what is recoverable: with no receipt, this text is the only copy.
-            if len(text) > EXCERPT_CHARS:
-                out['text'] = text[:EXCERPT_CHARS]
-                out['fp_excerpt'] = {
-                    'source_id': receipt['id'], 'returned_chars': EXCERPT_CHARS,
-                    'total_chars': len(text),
-                    'read': "The full captured text is stored: fp_source_text(source_id, "
-                            "find='…') searches it, or (source_id, offset=…) pages it. "
-                            'Quote from there, not from memory.'}
-        except (OSError,ValueError) as e:
-            out['fp_evidence_error'] = str(e)[:300]
-        return out
-    # wraps carries upstream tool name, explicit JSON schema and metadata, retaining
-    # web_fetch's EGRESS risk and the original URL/address guard.
-    return wrapped
 
 
 def capture_file(store: Store, path: str, roots=None):

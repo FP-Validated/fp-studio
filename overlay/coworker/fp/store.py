@@ -207,6 +207,25 @@ class Store:
             rows = db.execute("SELECT revision,created_at,receipt,restored_from,research_revision FROM revisions WHERE name=? ORDER BY revision DESC LIMIT 100", (name,)).fetchall()
         return [{**dict(r),'receipt':json.loads(r['receipt'])} for r in rows]
 
+    def redrawn_sources(self) -> set[str]:
+        """Every captured source some committed revision of any document redraws.
+
+        A turn that hands over two images asks for two documents. Demanding that ONE of
+        them consume both is what drove a model to waive the reproduce gate outright and
+        compose from scratch, which is the failure the gate exists to prevent.
+        """
+        with self.connect() as db:
+            rows = db.execute("SELECT receipt FROM revisions").fetchall()
+        out: set[str] = set()
+        for row in rows:
+            try:
+                ref = (json.loads(row['receipt']) or {}).get('reference')
+            except ValueError:
+                continue
+            if isinstance(ref, dict) and ref.get('source_id'):
+                out.add(str(ref['source_id']))
+        return out
+
     def publish(self, name: str, expected: int, expected_research: int, review: dict) -> dict:
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")

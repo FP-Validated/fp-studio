@@ -184,6 +184,25 @@ JSON and called it identical to the image.
 | The shipped failure, replayed against the gate | refused: `these values are not in the transcription of the source: 58, 59, 100` plus the renamed legend `'index', 'now'` |
 | A faithful redraw, verbatim and expanded | no violations either way |
 
+## 2026-09-17 — 0.3.6: the research surface, and the gate that drove the model to it
+
+A user attached two source images in one message, named the title, subtitle, note and
+source for each, and asked for two infographics. The model searched the web four times,
+read four pages, and composed frames from what it found. The delivered frame's numbers
+came from a page, not from the image in the message.
+
+| Defect | Root cause | Fix and its test |
+|---|---|---|
+| The redraw gate demanded that the document being rendered account for EVERY captured source | `unconsumed` returned every captured id except the one the document transcribed. Two images made the first document's refusal unsatisfiable, and the refusal text advised writing a `referenceWaiver` and composing freely | A document that redraws one supplied source passes; one that redraws none, while a source waits, is refused. A source another document already redrew is done (`Store.redrawn_sources`). Test renders two documents from two captured images with no waiver, then asserts a third source is still reported pending |
+| One string silenced the reproduce gate for every source at once | `referenceWaiver: "<anything>"` short-circuited the whole check, so the product's first principle could be waived by a sentence the model wrote itself | The waiver names the source it excuses and quotes the user: `{"<source_id>": "<what they said>"}`. A bare string is refused. Test asserts both |
+| Nothing stopped delivery with a supplied source untouched | Per-render enforcement was the only gate, and it had to be lenient to allow one-document-per-source | `fp_publish` refuses while any supplied source is un-redrawn and un-waived |
+| The model researched instead of redrawing | The product registered `web_search` and `web_fetch`. An instruction competes with a tool that is right there, and the tool wins | The FP build registers neither. `capture_web_fetch` and its excerpt machinery are deleted; evidence kinds are the ones a user supplies (image, structure, local_file). The upstream test asserting registration is patched to assert absence. Tests: `build_engine`'s source mentions neither factory, `ask_user` stays, and no FP tool docstring advertises a URL |
+
+| Check | Result |
+|---|---|
+| Assembled tree, every FP suite plus upstream | 2,175 passed, 1 skipped |
+| Fixed per-call cost | 15,679 chars against the 15,800 cap — the two evidence items merged into one now that there is no fetch route to describe |
+
 ## Reassembly equivalence
 
 `python scripts/assemble.py --dest /tmp/fp-verify-8 --openworker-source ~/Developer/fp-studio-v0.3

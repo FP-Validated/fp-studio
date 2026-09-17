@@ -6,9 +6,9 @@ OpenWorker is the application, not merely a backend to a replacement app. Its Re
 
 ```text
 Original OpenWorker conversation
-  user + agent + existing ask_user / web_search / web_fetch
+  user + agent + existing ask_user (no web search, no page fetch)
            |
-  FP brief, captured sources, claims, free composition
+  FP brief, the sources the USER supplied, claims, free composition
            |
   fp_render(expected document + research revisions)
            |
@@ -35,7 +35,7 @@ Original OpenWorker conversation
 
 ## Source versus authority
 
-A `web_fetch` wrapper records the actual returned text, not agent-authored assertions that a URL was read. It preserves the original function name, schema, risk metadata and networking implementation. Existing network permission and address guards remain in use.
+Evidence is what the user hands over: an attached image, a structure pasted into the message, a file under a granted root. This build registers no web search and no page fetch. A user who attaches a source asked for that source, and the delivered failure this removal exists for is a frame whose numbers came from a page the model found rather than from the image in the message. The tool factories remain upstream; the FP build does not register them.
 
 A local source receipt proves which file bytes were captured, not who authored the file. A captured excerpt is not proof of correctness or entailment. Numeric bindings link an exact typed source-document value to a stated claim; they cannot establish that a chart's interpretation is fair. Text-only statements and numbers embedded in arbitrary prose are not exhaustively classified by the numeric coverage check.
 

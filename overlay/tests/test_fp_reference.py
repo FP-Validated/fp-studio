@@ -359,7 +359,7 @@ def test_an_unknown_source_id_is_refused(tools, tmp_path):
 
 def test_a_web_source_cannot_pose_as_the_redrawn_reference(tools, tmp_path):
     text = Store(tmp_path).capture("https://example.test/a", "Direct 41.2",
-                                   {"kind": "web_fetch", "origin": "transport", "truncated": False})
+                                   {"kind": "local_file", "origin": "transport", "truncated": False})
     with pytest.raises(reference.ReferenceError, match="not a captured reference"):
         tools["fp_render"](dumps(redraw(text["id"])), 0, 0)
 
@@ -464,11 +464,47 @@ def test_a_supplied_source_cannot_be_quietly_ignored(tools, tmp_path):
                             "edges": [{"from": "a", "to": "b"}]}}
     with pytest.raises(ValueError, match="supplied a source to redraw"):
         tools["fp_render"](dumps(invented), 0, 0)
-
-    # Composing something else is allowed — in the user's words, on the record.
-    invented["referenceWaiver"] = "user: forget the sketch, show me the revenue split"
+    # Composing something else is allowed - named per source, in the user's own words.
+    with pytest.raises(reference.ReferenceError, match="names the source it excuses"):
+        tools["fp_render"](dumps(dict(invented, referenceWaiver="forget the sketch")), 0, 0)
+    sid = reference.reference_sources(Store(tmp_path))[0]["id"]
+    invented["referenceWaiver"] = {sid: "user: forget the sketch, show me the revenue split"}
     out = tools["fp_render"](dumps(invented), 0, 0)
     assert out["committed"] is True
+
+
+def test_two_supplied_sources_are_two_documents_and_need_no_waiver(tools, tmp_path):
+    """Why a model with two attached images went researching instead of redrawing.
+
+    The gate demanded that the document being rendered account for EVERY captured source.
+    A turn with two images asks for two documents, so the first one could never satisfy
+    it - and the refusal's own advice was to write a `referenceWaiver` and "compose
+    freely". A blanket waiver silenced the gate for both images at once, and the model
+    went to the web for numbers that were sitting in the message.
+    """
+    first = reference.capture_image(Store(tmp_path), png_bytes(tint=1), "attachment:mip12.png")
+    second = reference.capture_image(Store(tmp_path), png_bytes(tint=2), "attachment:validators.png")
+
+    one = {"title": "MIP-12", "reference": {"source_id": first["id"],
+           "blocks": [{"kind": "chart", "template": "bar", "categories": ["vote_pace"],
+                       "series": [{"label": "Before", "values": ["400 ms"]}]}]},
+           "blocks": [{"kind": "chart", "template": "bar", "fields": {"category": "K", "value": "V"},
+                       "rows": [{"id": "a", "K": "vote_pace", "V": 400}]}]}
+    assert tools["fp_render"](dumps(one), 0, 0)["committed"], "the second image is not this document's job"
+
+    two = {"title": "Validators", "reference": {"source_id": second["id"],
+           "blocks": [{"kind": "chart", "template": "bar", "categories": ["OVHcloud"],
+                       "series": [{"label": "Share", "values": ["8.6%"]}]}]},
+           "blocks": [{"kind": "chart", "template": "bar", "fields": {"category": "K", "value": "V"},
+                       "rows": [{"id": "a", "K": "OVHcloud", "V": 8.6}]}]}
+    assert tools["fp_render"](dumps(two), 0, 0, name="validators")["committed"]
+
+    # Both are redrawn now, so a third document composed from something else is free.
+    assert reference.pending(Store(tmp_path)) == []
+
+    # And a document that redraws neither, while one is still pending, is still refused.
+    third = reference.capture_image(Store(tmp_path), png_bytes(tint=3), "attachment:third.png")
+    assert reference.pending(Store(tmp_path)) == [third["id"]]
 
 
 def test_capture_image_tool_reads_a_granted_file_and_re_reads_a_capture(tools, tmp_path):
