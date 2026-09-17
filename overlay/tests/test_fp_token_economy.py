@@ -394,3 +394,31 @@ def test_one_call_serves_the_contract_and_every_rule_it_requires(tools, tmp_path
     assert 'fp-design-reproduce' in tools['fp_guide']('draw', 'flowchart', True)['acknowledge']
     # The appendix never rides along.
     assert 'Gap between the title and the infographic is 98px' not in json.dumps(guide)
+
+
+def test_a_contract_already_delivered_comes_back_as_a_pointer(tools):
+    """The second copy is the expensive one: it is re-sent on every later call.
+
+    A real conversation called fp_guide('draw', 'bar', redraw=True) and then asked for
+    the same grammar, the frame fields and the chart card again, one by one - four extra
+    payloads that the transcript then carried for the rest of the turn.
+    """
+    first = tools['fp_guide']('draw', 'bar', True)
+    assert first['grammars'][0]['id'] == 'bar'
+
+    again = tools['fp_guide']('draw', 'bar', True)
+    assert again.get('served_earlier') is True and 'grammars' not in again
+    # The digest map still comes back: the render gate needs it, and it is two hashes.
+    assert set(again['acknowledge']) == set(first['acknowledge'])
+
+    for repeat in (tools['fp_guide']('grammar', 'bar'), tools['fp_guide']('input'),
+                   tools['fp_design_rules']('fp-design-chart')):
+        assert repeat.get('served_earlier') is True, repeat
+        assert 'contract' not in repeat and 'rules' not in repeat
+
+    # A compaction can drop it, so the text stays reachable on request.
+    assert 'FPInput' in tools['fp_guide']('input', again=True)['contract']
+    assert "style:'paired'" in tools['fp_design_rules']('fp-design-chart', again=True)['rules']
+    # An appendix is read once, on demand, and is never suppressed.
+    for _ in range(2):
+        assert 'slanted (~48°)' in tools['fp_design_rules']('fp-design-chart', appendix=True)['rules']

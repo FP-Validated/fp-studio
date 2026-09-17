@@ -125,6 +125,27 @@ built reference.
 | Compiler pinned inside the bundle | `fp-kit/ecf6d9c0b881a98ccfa8871a7dec86e8c5e799e6` |
 | The reported table through the staged bundle, default pitch and `rowPitch: 40` | both committed with no audit findings; read back as images: labels inside the head in both, key column on one line, rules under the header and between rows |
 
+## 2026-09-17 — 0.3.3: the grammar could not express a paired bar
+
+A user redraw of a paired bar chart (two dates per measure, seven measures) came back as
+seven identical full-width bars with `100` printed beside each. The trace also shows 24
+steps for one frame.
+
+| Defect | Root cause | Fix and its test |
+|---|---|---|
+| Seven identical bars, every value printed as `100` | The bar grammar took one value column (`fields.value`) and one text column (`fields.line`). A paired source had nowhere to put its second series, so the agent indexed the first series to 100 | `style: 'paired'`: two or three bars per row from `fields.columns`, legend, both values printed, `fields.unit` / `delta` / `group`, `scale` `'row'` (default, mixed units) or `'shared'`. String values (`839.8M`, `$0.58`) print verbatim and their magnitude drives the bar. Kit tests assert two bars per row, every printed value, per-row normalisation, the shared scale and the one-series refusal |
+| The agent read the renderer to find out what `style` accepts | A grammar's styles were published nowhere: `style?: string` | `templates/registry.json` carries them with a `when` line each; `fp_guide('vocabulary')` and `('draw')` return them. Live test asserts the shipped bundle offers `paired` |
+| `colorMode: 'series'` crashed as `Cannot read properties of undefined (reading 'assignment')` | An unknown mode fell out of the palette switch as `undefined` | `choosePalette` names the modes the pack serves. Kit test asserts the message |
+| The same grammar contract, frame fields, design tokens and chart card were served twice in one turn | `fp_guide('vocabulary')`'s `next` string still routed to the old four-call path, and nothing recorded what a conversation already held | The catalog routes to `fp_guide('draw')`; a served contract returns a pointer, `again=True` forces the text. An appendix is never suppressed. Test asserts the pointer, the digest map surviving it, and the forced re-read |
+
+| Check | Result |
+|---|---|
+| fp-kit | 47 passed |
+| Assembled tree, every FP suite / Node runtime / GUI unit + build / shell smoke E2E | 2,170 passed, 1 skipped / 27 / passed / 2 passed |
+| Fixed per-call cost | 15,740 chars against the 15,800 cap: the paired rules and the pointer mechanics were paid for by deleting duplicated prose in the chart card and merging two prompt items that both described the draw route |
+| Chart document's mandatory reading | 2,649-char card, 7,485 with the index card (cap 7,500) |
+| The reported chart, rendered through the staged bundle and read back as an image | legend, group headings, per-row unit, two bars per row, both values and the change column; `$0.58` against `$9.50` is a stub, not half a bar |
+
 ## Reassembly equivalence
 
 `python scripts/assemble.py --dest /tmp/fp-verify-8 --openworker-source ~/Developer/fp-studio-v0.3

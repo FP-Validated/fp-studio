@@ -4,15 +4,10 @@ description: MANDATORY rules for every FP chart grammar (bar, line, scatter, are
 allowed-tools: fp_design_rules, fp_inspect, fp_source, fp_render, fp_edit
 ---
 
-Required by `fp_render` and `fp_edit` for any document containing a chart grammar. Load
-`fp-design-system` first — the frame, typography and color rules there apply on top of
-these. The legend is not optional.
-
-Bar fills, axis and gridline strokes, tick and label sizes, the slant angle and the legend
-marker geometry are the renderer's: it draws them from the Bar Chart frame and the Chart
-Label System, and they are verbatim in
-`fp_design_rules('fp-design-chart', appendix=True)` for when a rendered chart has to be
-inspected against a number. This card is the part you author.
+Required with `fp-design-system` for any document containing a chart grammar. Bar fills,
+axis and gridline strokes, tick sizes, the slant angle and legend marker geometry are the
+renderer's, verbatim in the appendix for when a rendered chart must be inspected against
+a number. This card is the part you author. The legend is not optional.
 
 ---
 
@@ -21,29 +16,31 @@ Do
 One series emphasized: slate base + ONE point color, on that series only (fill at low opacity, 100% stroke, glow).
 Multiple distinct series: the FP categorical palette (8 muted hues).
 Company / brand chart: the brand's real key color, sampled from the logo asset in the file.
-Color only what the sample highlights.
 Do not
 Don't make a multi-series chart monochrome.
 Don't substitute or approximate a brand color.
-Don't add a highlight the sample doesn't have.
-Don't give every bar the accent color — only the ones the sample highlights.
+Don't add a highlight the sample doesn't have, and don't give every bar the accent color.
+
+Two bars per row — the paired style
+Do
+Two bars per row (before/after, two dates) is `template:'bar'`, `style:'paired'`: name the series in `fields.columns` in the source's order and the legend, row label and both printed values come with it.
+A value may be the source's own string (`839.8M`, `$0.58`): printed verbatim, its magnitude drives the bar.
+Mixed units keep the default per-row scale — each row normalises to its own largest series, so the pair carries the fall and the printed numbers carry the level. One unit for every row: `scale:'shared'`.
+`fields.unit` prints a unit under a row label, `fields.delta` a change column, `fields.group` a heading above each group.
+Do not
+Don't index a series to 100 to fake a pair, and don't drop one of the two series.
+Don't put a second bar series in `fields.line` — that is a text column, not a bar.
 
 Legend — always include
 Do
 Always reproduce the legend.
-Match the marker to how the series is drawn: a bar / stacked / area series takes a square, a line takes a line, a reference / forecast / threshold takes a dashed line, a scatter / point takes a dot, a named company / token / entity takes a logo chip.
+Match the marker to the render type: bar / stacked / area a square, line a line, reference / forecast / threshold a dashed line, scatter / point a dot, a named company / token / entity a logo chip.
 Do not
 Don't drop the legend when importing a chart graphic.
-Don't use a dot for a bar / area series — use a square (marker mirrors render type).
 Don't mismatch marker count, shape, or color to the series.
 
 Fidelity
 Do
-Reproduce every data point, label, and axis value exactly as in the sample.
-After building, double-check every value, label, axis, color, and legend marker (shape, color, count) against the sample.
+Check every value, label, axis title and legend marker against the sample.
 Do not
-Don't add, change, or drop any value or label.
-Don't invent a series, legend entry, or highlight the sample doesn't have.
-Don't relabel, reorder, or round values differently from the sample.
-Don't drop the axis titles.
-Don't leave x-axis labels horizontal — always slant them.
+Don't drop the axis titles, and don't leave x-axis labels horizontal — always slant them.

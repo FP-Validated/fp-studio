@@ -66,7 +66,8 @@ def test_the_card_decides_and_the_appendix_keeps_the_guideline_verbatim():
     assert "Clone the Frame Guide (209:3364) and use its existing chrome and background." in index
     assert "Don't delete the FOUR PILLARS watermark" in index
     assert "Don't shrink columns to text width — full 1696px unless asked." in table
-    assert "Color only what the sample highlights." in chart
+    assert "Don't make a multi-series chart monochrome." in chart
+    assert "Two bars per row (before/after, two dates) is `template:'bar'`" in chart
     assert "Count the COLORS in the sample, not the boxes." in flow
     # The renderer's own geometry is still shipped, one call away, unchanged.
     system_appendix = design.appendix("fp-design-system")["rules"]

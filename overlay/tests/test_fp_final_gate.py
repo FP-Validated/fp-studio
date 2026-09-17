@@ -56,8 +56,9 @@ def test_a_chart_document_is_asked_the_chart_rules(tools, tmp_path):
     checklist = published_doc(tools, tmp_path, CHART)
     assert 'fp-design-chart' in checklist['skills']
     rules = [item['rule'] for item in checklist['items']]
-    assert "Don't leave x-axis labels horizontal — always slant them." in rules
-    assert any('marker mirrors render type' in r for r in rules)
+    assert "Don't drop the axis titles, and don't leave x-axis labels horizontal — always slant them." in rules
+    assert any('Match the marker to the render type' in r for r in rules)
+    assert any("style:'paired'" in r for r in rules)
 
 
 def test_every_item_is_addressable_and_traceable(tools, tmp_path):

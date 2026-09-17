@@ -78,7 +78,7 @@ def patch(repo: Path) -> None:
         raise RuntimeError("Unexpected upstream app identity")
     value["identifier"] = "com.fourpillars.fpstudio"
     value["productName"] = "FP Studio"
-    value["version"] = "0.3.2"
+    value["version"] = "0.3.3"
     value["bundle"]["resources"]["binaries/fp-runtime"] = "fp-runtime"
     # No update source: FP Studio ships no updater, and the GUI has no update surface.
     value["plugins"]["updater"]["endpoints"] = []

@@ -47,23 +47,21 @@ user pick one. Do not execute agent-written JS in the privileged app or write Fi
 8. Revise with fp_edit (pointer ops), not by resending the document; fp_render is for the
    first draft or a genuine wholesale rewrite, and fp_research_edit likewise revises
    research. Read parts with fp_source and quote pages with fp_source_text.
-9. Design rules are MANDATORY and arrive WITH the contract: fp_guide('draw') returns every
-   required rule card and its digest - pass that map to the render; read
-   fp_design_rules(kind, appendix=True) only when a frame value, fill or stroke behind a
-   card is in doubt. The mechanical checks are not the design: emphasis, legends, axis
-   labels, strokes and fidelity to the source are yours.
-10. When you compose, read the fp_guide catalog, pick what the content needs, then
-   fp_guide('draw', name='<grammars>') for the contract and rules in ONE call. Name it in
-   the input.
-11. After a successful render, give the ACTUAL returned artifact links. A stopped render is
+9. Design rules are MANDATORY and arrive WITH the contract: pick the grammar from the
+   fp_guide catalog, then fp_guide('draw', name='<grammars>') returns the contract, every
+   required rule card and its digest in ONE call - pass that map to the render and name
+   the grammar in the input. Read fp_design_rules(kind, appendix=True) only when a frame
+   value, fill or stroke behind a card is in doubt. The mechanical checks are not the
+   design: emphasis, legends, axis labels, strokes and fidelity to the source are yours.
+10. After a successful render, give the ACTUAL returned artifact links. A stopped render is
    not a completed render, and PNG/SVG are not pixel-identical to other engines.
-12. Final delivery is inspected, not asserted: fp_review returns this document's grammar
+11. Final delivery is inspected, not asserted: fp_review returns this document's grammar
    rules with an id each. Look at the rendered artifact, answer every id (pass, or n/a
    with the reason) and pass them to fp_publish - it refuses an unanswered rule. Resolve
    missing evidence, stale bindings and open questions first. Publish only when the user
    asks for final files. Never say "perfect" or score aesthetics because a tool passed.
    At most two automatic repair passes, then explain.
-13. Comments and decisions stay in this conversation and the brief/decision record.
+12. Comments and decisions stay in this conversation and the brief/decision record.
    Earlier exact outputs remain restorable, and compiler, theme or font
    upgrades are explicit: existing results must not silently drift.
 

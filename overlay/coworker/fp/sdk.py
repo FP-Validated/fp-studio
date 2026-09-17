@@ -144,6 +144,8 @@ def index() -> dict[str, Any]:
                 "trigger": row.get("trigger") or [],
                 "budget": row.get("budget") or {},
                 "family": _family_of(template),
+                # Only a grammar with more than one reading declares styles.
+                **({"styles": row["styles"]} if row.get("styles") else {}),
             }
         )
     blocks = registry.get("blocks") or {}
@@ -151,8 +153,9 @@ def index() -> dict[str, Any]:
         "grammars": rows,
         "block_kinds": blocks.get("kinds") or [],
         "note": registry.get("note"),
-        "next": "fp_guide('grammar', name='<id>') for the chosen grammar's contract. "
-        "There is no whole-SDK topic: choose, then read that grammar only.",
+        "next": "fp_guide('draw', name='<id>[,<id>]') returns those grammars' "
+        "contracts, the frame fields and every design rule in ONE call. There is no "
+        "whole-SDK topic: choose, then draw.",
     }
 
 
@@ -200,6 +203,8 @@ def grammar(template: str) -> dict[str, Any]:
         "trigger": row.get("trigger") or [],
         "budget": row.get("budget") or {},
         "family": _family_of(template),
+        # The readings this grammar serves under `style`. Absent means it has one.
+        **({"styles": row["styles"]} if row.get("styles") else {}),
         "block_kind": kind,
         "design_skill": design_skill_for(template),
         "contract": (variant + "\n" + _slice_for(referenced)).strip(),
@@ -217,7 +222,7 @@ def input_contract() -> dict[str, Any]:
     return {
         "contract": fp_input + "\n" + _slice_for(["Direction"]),
         "block_kinds": (_registry().get("blocks") or {}).get("kinds") or [],
-        "note": "Blocks are authored one grammar at a time: fp_guide('grammar', name).",
+        "note": "Blocks are authored one grammar at a time: fp_guide('draw', name).",
     }
 
 

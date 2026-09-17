@@ -191,14 +191,21 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
                 'next_offset':offset+len(window) if offset+len(window)<len(text) else None,
                 'notice':'Captured text is evidence of the fetch, not proof of the claim.'}
 
-    def fp_guide(topic: str='vocabulary', name: str='', redraw: bool=False) -> dict:
+    def _pointer(key: str, held: str) -> dict:
+        """What a second request for an already delivered contract gets instead."""
+        return {'served_earlier': True, 'holding': held,
+                'read': 'This conversation already carries it in full; re-sending it '
+                        'would be paid for on every later call. Scroll back. If a '
+                        'compaction dropped it, ask again with again=True.'}
+
+    def fp_guide(topic: str='vocabulary', name: str='', redraw: bool=False,
+                 again: bool=False) -> dict:
         """Read the FP SDK authoring contracts, one grammar at a time.
 
-        topics: vocabulary (thin catalog: id, intent, triggers, budget; start here), draw
-        (ONE call: the contracts for `name` - comma separated - the frame fields and every
-        design-rule card and digest they require; redraw=True adds the reproduce rules),
-        grammar (one contract), input (frame fields), language (design tokens). There is
-        no whole-SDK topic: 45 grammars of schema per document was the old cost.
+        topics: vocabulary (catalog: id, intent, triggers, budget, styles; start here),
+        draw (THE route, ONE call: `name`'s contracts - comma separated - the frame fields,
+        every rule card and digest; redraw=True adds the reproduce rules), grammar, input,
+        language. A contract already served returns a pointer; again=True forces the text.
         """
         if topic == 'vocabulary':
             payload = sdk.index()
@@ -213,6 +220,11 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
             if redraw:
                 document['reference'] = {}
             needed = design.required(document)
+            key = 'draw:' + ','.join(sorted(names)) + (':redraw' if redraw else '')
+            if not again and store.served(key):
+                return {'topic': topic, 'acknowledge': {n: design.digest(n) for n in needed},
+                        **_pointer(key, f"the {', '.join(names)} contract, the frame "
+                                        f"fields and {len(needed)} rule cards")}
             payload = {
                 'grammars': [sdk.grammar(n) for n in names],
                 'input': sdk.input_contract(),
@@ -222,17 +234,30 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
                         'rule call is needed; fp_design_rules(kind, appendix=True) serves '
                         'a frame value or exact stroke behind a card when one is in doubt.',
             }
+            for served in (key, 'input', *(f'grammar:{n}' for n in names),
+                           *(f'rules:{n}' for n in needed)):
+                store.mark_served(served)
         elif topic == 'grammar':
             if not name:
                 raise ValueError(
                     "fp_guide('grammar') needs name=<id>; call fp_guide('vocabulary') "
                     "for the ids."
                 )
+            if not again and store.served(f'grammar:{name}'):
+                return {'topic': topic, **_pointer(f'grammar:{name}',
+                                                   f"the {name} contract")}
             payload = sdk.grammar(name)
+            store.mark_served(f'grammar:{name}')
         elif topic == 'input':
+            if not again and store.served('input'):
+                return {'topic': topic, **_pointer('input', 'the frame fields')}
             payload = sdk.input_contract()
+            store.mark_served('input')
         elif topic == 'language':
+            if not again and store.served('language'):
+                return {'topic': topic, **_pointer('language', 'the design tokens')}
             payload = {'content': sdk._read('docs/DESIGN-LANGUAGE.md')}
+            store.mark_served('language')
         else:
             raise ValueError(
                 "Invalid guide topic. Use vocabulary, draw (with name), grammar (with "
@@ -242,16 +267,23 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
                 'model': 'Compose freely from the contract. Grammars are vocabulary, not pre-made layouts.',
                 'rules': 'Use published FP contracts; show early drafts; preserve facts; never execute agent-generated JS in the app.'}
 
-    def fp_design_rules(kind: str='', appendix: bool=False) -> dict:
+    def fp_design_rules(kind: str='', appendix: bool=False, again: bool=False) -> dict:
         """Read the MANDATORY FOUR PILLARS design rules. Renders are refused without them.
 
-        fp_guide('draw') already returns every card a document requires with its digest;
-        use this for one skill alone, or appendix=True for the verbatim frame arithmetic,
+        fp_guide('draw') already serves every card a document requires; a repeat returns a
+        pointer (again=True forces it). appendix=True gives the verbatim frame arithmetic,
         fills, strokes and marker geometry behind a card. kind: fp-design-system (index),
-        fp-design-table, -chart, -flowchart, -reproduce.
+        -table, -chart, -flowchart, -reproduce.
         """
         name=(kind or design.INDEX_SKILL).strip()
-        loaded=design.appendix(name) if appendix else design.load(name)
+        if appendix:
+            loaded=design.appendix(name)
+        else:
+            if not again and store.served(f'rules:{name}'):
+                return {'name':name,'digest':design.digest(name),'available':design.SKILLS,
+                        **_pointer(f'rules:{name}', f'the {name} card')}
+            loaded=design.load(name)
+            store.mark_served(f'rules:{name}')
         return {**loaded,'available':design.SKILLS,
                 'binding':'These rules are enforced, not advisory: fp_render rejects a '
                           'document whose design_rules omit a required skill, and '
