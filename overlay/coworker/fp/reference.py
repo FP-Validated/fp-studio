@@ -255,7 +255,11 @@ def capture_turn(workspace: str | Path, text: Any, attachments: Iterable[Any]) -
     for index, attachment in enumerate(attachments or []):
         if not isinstance(attachment, dict):
             continue
-        url = attachment.get("url") or attachment.get("dataUrl") or ""
+        # `data_url` is what the composer and `build_user_content` use — capture MUST key
+        # off the same field the model call does, or an attached image reaches the model
+        # while the redraw gate sees no source at all and asks the user to re-attach it.
+        url = (attachment.get("data_url") or attachment.get("url")
+               or attachment.get("dataUrl") or "")
         if not isinstance(url, str) or not url.startswith("data:image/"):
             continue
         head, _, payload = url.partition(";base64,")

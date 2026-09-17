@@ -131,9 +131,9 @@ def test_a_file_that_is_not_an_image_is_refused(tmp_path):
 def test_a_turn_captures_images_and_pasted_structures_and_skips_bad_ones(tmp_path):
     receipts = reference.capture_turn(tmp_path, "here is the stack:\n" + ASCII_DIAGRAM, [
         {"kind": "image", "name": "chart.png",
-         "url": "data:image/png;base64," + base64.b64encode(png_bytes()).decode()},
-        {"kind": "image", "name": "broken.png", "url": "data:image/png;base64,!!!not-base64"},
-        {"kind": "text", "name": "notes.txt", "url": "data:text/plain;base64,aGk="},
+         "data_url": "data:image/png;base64," + base64.b64encode(png_bytes()).decode()},
+        {"kind": "image", "name": "broken.png", "data_url": "data:image/png;base64,!!!not-base64"},
+        {"kind": "text", "name": "notes.txt", "data_url": "data:text/plain;base64,aGk="},
         "not-a-dict",
     ])
     assert [r["locator"] for r in receipts] == ["attachment:chart.png", "pasted:ascii-diagram-1"]
@@ -142,6 +142,27 @@ def test_a_turn_captures_images_and_pasted_structures_and_skips_bad_ones(tmp_pat
     # The paste is readable evidence, not an opaque descriptor.
     text = Store(tmp_path).source(receipts[1]["id"])["text"]
     assert "indexer-agent" in text and receipts[1]["form"] == "ascii-diagram"
+
+
+def test_the_image_the_model_receives_is_the_image_the_gate_captures(tmp_path):
+    """One attachment dict, both consumers.
+
+    The composer sends `data_url`; `build_user_content` keys off that field when it builds
+    the model turn. Capture used to read `url`/`dataUrl`, names nothing sends, so a real
+    attached image reached the model while the redraw gate saw no source and the agent
+    asked the user to attach the file again. This test fails if the two paths ever read
+    different fields again.
+    """
+    from coworker.attachments import build_user_content
+
+    attachment = {"kind": "image", "name": "table.png",
+                  "data_url": "data:image/png;base64," + base64.b64encode(png_bytes()).decode()}
+    parts = build_user_content("redraw this in our design", [attachment])
+    assert [p["type"] for p in parts] == ["text", "image_url"]
+    receipts = reference.capture_turn(tmp_path, "redraw this in our design", [attachment])
+    assert [r["locator"] for r in receipts] == ["attachment:table.png"]
+    rows = reference.reference_sources(Store(tmp_path))
+    assert [r["kind"] for r in rows] == ["image"]
 
 
 def test_prose_and_pasted_code_are_not_mistaken_for_a_diagram(tmp_path):

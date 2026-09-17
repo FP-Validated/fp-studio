@@ -78,6 +78,34 @@ notary key.
 Still not run: installation on a separate clean Mac, and a full live-provider research → draft → revision →
 publish conversation.
 
+## 2026-09-17 — 0.3.1: three defects the first real conversation found
+
+A live 0.3.0 session spent 1,869,070 input tokens on one infographic. The trace, not a
+guess, names the causes.
+
+| Defect | Root cause | Fix and its test |
+|---|---|---|
+| An attached image never became a redraw source; the agent asked the user to re-attach it and to grant folder access to hunt for the screenshot | The composer sends `{kind:"image", data_url:…}` and `build_user_content` reads `data_url`; `capture_turn` read `url`/`dataUrl` — names nothing sends. The fixture test used `url`, so it passed | Capture reads the same field the model turn reads. `test_the_image_the_model_receives_is_the_image_the_gate_captures` feeds ONE attachment dict to both paths; it fails on the shipped 0.3.0 code (`[] == ['attachment:table.png']`) |
+| Long table cells rendered as `…`; raising the row pitch only stretched the frame | `tableBlock` drew every cell with `maxLines: 1` against a fixed pitch | Cells wrap to four lines, row height follows the wrapped count, and a column never shrinks below its longest word. Kit test asserts no `…`, `lines.join(' ') == source`, and `['Custody &', 'recordkeeping']` |
+| No horizontal rules; the header band was a rounded pill above the first row | Pack shipped `rowRules: false`; the band took the surface radius on all four corners | A rule under the header and between rows, spanning the full table width; `corners: 'top'` on the band, new per-corner radius honoured by the SVG (path) and Figma (per-corner radii) backends. Kit test pins rule count, `rule.w == table.w` and `band.corners === 'top'` |
+| The release gate never ran `test_fp_reference.py` | The build script enumerated eight suites by name | The gate now runs `tests/test_fp_*.py` |
+
+| Check | Result |
+|---|---|
+| Assembled tree, every FP suite | 165 passed |
+| fp-kit | 43 passed |
+| fp_runtime Node tests / GUI unit + production build / fork shell smoke E2E | 27 passed / passed / 2 passed |
+| DMG `FP Studio_0.3.1_aarch64.dmg` | 177,987,734 bytes, sha256 `9cf9ca43858f227a870c1380d5f30a619f4ced21204b769ee0fde372decb0582` |
+| Signature, notarization, Gatekeeper | `Developer ID Application: Hyunmin kim (KH55W9G87F)`, timestamp 2026-09-17 10:47:23, notary `Accepted`, ticket stapled and validated, `accepted — source=Notarized Developer ID` |
+| Compiler pinned inside the bundle | `fp-kit/18518aef6147c481877196047b232af2ff14cb7d`, `rowRules: true` in the staged theme |
+| The reported nine-row table, re-rendered through the staged bundle with `FP_FONT_DIR` unset | committed, audit `ok` with no findings, read back as an image: every cell whole, rules under the header and between rows, no vertical rules |
+| Attachment → capture → `fp_inspect` references, through the staged bundle | `['text','image_url']` model turn and `attachment:ondo-table.png` captured from the same dict |
+
+Round trips removed: a redraw needs no research and no review pass, `fp_review` is delivery
+only, one `fp_guide('draw')` is the whole briefing, and the truncation warning that sent the
+agent grepping the SVG is gone because the layout no longer truncates. Fixed per-call cost
+stayed at 15,796 characters (cap 15,800) by deleting duplicated prose.
+
 ## Reassembly equivalence
 
 `python scripts/assemble.py --dest /tmp/fp-verify-8 --openworker-source ~/Developer/fp-studio-v0.3

@@ -70,7 +70,9 @@ print("design rules staged: " + ", ".join(f"{n}@{design.digest(n)[:12]}" for n i
 # Fail closed on REAL renderer integration. There is no skip-if-unavailable path.
 export FP_STUDIO_RUNTIME_DIR="$TMP"
 unset FP_STUDIO_RENDER_CMD FP_STUDIO_TESTING NODE_OPTIONS NODE_PATH
-(cd "$ROOT" && .venv/bin/python -m pytest -q tests/test_fp_core_v03.py tests/test_fp_process_v03.py tests/test_fp_migration_v03.py tests/test_fp_live_runtime.py tests/test_fp_permission_integration.py tests/test_fp_design_rules.py tests/test_fp_sdk_routing.py tests/test_fp_token_economy.py)
+# Every FP suite, not an enumerated subset: `tests/test_fp_reference.py` was missing from
+# the old list, so a capture bug that broke every attached-image redraw passed the gate.
+(cd "$ROOT" && .venv/bin/python -m pytest -q tests/test_fp_*.py)
 (cd "$KIT" && npm test)
 (cd "$GUI" && npm test && npm run build)
 # The upstream E2E suite pins upstream's product name and its exact settings/sidebar/

@@ -5,7 +5,7 @@ import { Resvg, initWasm } from '@resvg/resvg-wasm';
 import { validateRequest, validateFrame, stableStringify, sha256, ensureStatic } from './lib/contracts.mjs';
 import { inspectFont, requireGlyphCoverage } from './lib/fonts.mjs';
 const ROOT=path.dirname(fileURLToPath(import.meta.url));
-const COMMIT='112affecbc07fe221a9a145b8529699b5805039e';
+const COMMIT='18518aef6147c481877196047b232af2ff14cb7d';
 const MAX=2*1024*1024;
 async function main() {
   let raw='';
