@@ -1,0 +1,1 @@
+overlay/tests NOT run here: set FP_ASSEMBLED=<assembled checkout> to run the product suites.

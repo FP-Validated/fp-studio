@@ -1,0 +1,35 @@
+✔ nested fields are retained in content hash (0.6835ms)
+✔ key order is irrelevant recursively (0.089459ms)
+✔ array order and value type are meaningful (0.746208ms)
+✔ invalid request null (0.345583ms)
+✔ invalid request [] (0.066834ms)
+✔ invalid request undefined (0.056167ms)
+✔ invalid request 1 (0.054083ms)
+✔ unsafe number NaN (0.057667ms)
+✔ unsafe number Infinity (0.046083ms)
+✔ unsafe number 9007199254740992 (0.07075ms)
+✔ prototype keys rejected (0.089167ms)
+✔ theme path traversal rejected (0.061792ms)
+✔ valid frame (0.050958ms)
+✔ invalid frame {"width":1920,"height":20000} (0.040125ms)
+✔ invalid frame {"width":0,"height":10} (0.022416ms)
+✔ invalid frame {"width":20.2,"height":10} (0.031375ms)
+✔ invalid frame {"width":8192,"height":8192} (0.032125ms)
+✔ unsafe SVG <svg><script/></svg> (0.097959ms)
+✔ unsafe SVG <svg><foreignObject/></svg> (0.080125ms)
+✔ unsafe SVG <svg><use href="https://x"/></svg> (0.173ms)
+✔ static path supported (0.0565ms)
+✔ SFNT family and format12 glyph coverage (0.609125ms)
+✔ wrong font family is rejected (0.159625ms)
+✔ missing Korean glyph is not silently outlined away (0.611458ms)
+✔ known glyph and whitespace accepted (0.211042ms)
+✔ malformed tables rejected (0.076959ms)
+✔ format4 BMP segments enforce real glyph coverage (0.1305ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 49.265541

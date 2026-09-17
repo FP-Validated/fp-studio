@@ -1,0 +1,396 @@
+"""The transcript is replayed on every model call, so payload size is a contract.
+
+Measured on a real session (~3.9M input tokens for ONE infographic): `fp_render` and
+`fp_research` arguments were 42% of it, fetched page bodies 17%, and `fp_inspect` echoed
+the whole document before every edit. These tests pin the paths that fixed that:
+
+- an edit names a change (pointer ops) instead of resending the document,
+- inspect returns an outline and hashes, with readers for the parts,
+- web_fetch returns the head of a page and keeps every byte in the receipt.
+
+They are size assertions on purpose. A "harmless" re-add of the full document to a tool
+result is exactly the regression that cost the tokens, and it is invisible in behaviour.
+"""
+import json
+import tempfile
+
+
+import pytest
+
+from coworker import permissions, risk
+from coworker.fp import design
+from coworker.fp.common import ConflictError, dumps
+from coworker.fp.patch import PatchError, apply_ops, outline
+from coworker.fp.rendering import RenderController
+from coworker.fp.research import EXCERPT_CHARS, capture_web_fetch
+from coworker.fp.store import Store
+from coworker.tools.fp import WRITE_TOOLS, fp_tools
+
+from test_fp_core_v03 import acknowledge, rendered
+
+
+@pytest.fixture
+def tools(tmp_path, monkeypatch):
+    monkeypatch.setattr(RenderController, 'run',
+                        lambda self, value, workspace, **kw: rendered(value.get('title', 'x')))
+    funcs = {fn.__name__: fn for fn in fp_tools(tmp_path)}
+    render, edit = funcs['fp_render'], funcs['fp_edit']
+
+    def render_with_rules(input_json, rev, research_rev, design_rules='', **kw):
+        return render(input_json, rev, research_rev, design_rules or acknowledge(input_json), **kw)
+
+    def edit_with_rules(ops_json, rev, research_rev, design_rules='', **kw):
+        # The skills a document requires follow from its grammars, which an edit rarely
+        # changes; fp_inspect's receipt.design_rules carries the last render's set.
+        name = kw.get('name', 'infographic')
+        current = Store(tmp_path).get(name)
+        rules = design_rules or dumps(
+            {n: design.digest(n) for n in design.required(current['input'] if current else {})})
+        return edit(ops_json, rev, research_rev, rules, **kw)
+
+    funcs['fp_render'] = render_with_rules
+    funcs['fp_edit'] = edit_with_rules
+    return funcs
+
+
+def table_document(rows: int = 120) -> dict:
+    """A document of realistic size: the thing an edit must not resend."""
+    return {'title': 'Quarterly network comparison', 'source': 'Example Corp',
+            'dateAsOf': '2026-09-13', 'note': 'Draft',
+            'noteRequest': 'the user asked for a "Draft" label in the footer',
+            'blocks': [{'kind': 'table', 'template': 'table',
+                        'rows': [{'id': f'r{i}', 'cells': [f'Network {i}', str(i * 3), 'stable'],
+                                  'note': 'measured under the same denominator'} for i in range(rows)]}]}
+
+
+def chars(payload) -> int:
+    return len(json.dumps(payload, ensure_ascii=False, default=str))
+
+
+# ---------------------------------------------------------------- pointer ops
+
+def test_ops_change_exactly_what_they_name():
+    doc = {'a': {'b': [1, 2, 3]}, 'keep': 'me'}
+    out = apply_ops(doc, [{'op': 'set', 'pointer': '/a/b/1', 'value': 9},
+                          {'op': 'append', 'pointer': '/a/b', 'value': 4},
+                          {'op': 'insert', 'pointer': '/a/b/0', 'value': 0},
+                          {'op': 'remove', 'pointer': '/keep'},
+                          {'op': 'set', 'pointer': '/new', 'value': True}])
+    assert out == {'a': {'b': [0, 1, 9, 3, 4]}, 'new': True}
+    assert doc == {'a': {'b': [1, 2, 3]}, 'keep': 'me'}  # input untouched
+
+
+def test_ops_accept_negative_index_and_escaped_tokens():
+    assert apply_ops({'x': [1, 2]}, [{'op': 'set', 'pointer': '/x/-1', 'value': 5}]) == {'x': [1, 5]}
+    assert apply_ops({'a/b': 1}, [{'op': 'set', 'pointer': '/a~1b', 'value': 2}]) == {'a/b': 2}
+
+
+@pytest.mark.parametrize('ops', [
+    [{'op': 'set', 'pointer': '/blocks/9/title', 'value': 'x'}],   # invented branch
+    [{'op': 'remove', 'pointer': '/gone'}],                        # already absent
+    [{'op': 'set', 'pointer': '/blocks/0/rows/99', 'value': 1}],   # index out of range
+    [{'op': 'append', 'pointer': '/title', 'value': 'x'}],         # not a list
+    [{'op': 'set', 'pointer': 'blocks', 'value': 1}],              # not a pointer
+    [{'op': 'set', 'pointer': '/title'}],                          # no value
+    [{'op': 'remove', 'pointer': '/title', 'value': 1}],           # value with remove
+    [{'op': 'patch', 'pointer': '/title', 'value': 1}],            # unknown op
+    [{'op': 'set', 'pointer': '', 'value': 'scalar root'}],        # root must stay an object
+    [],                                                            # nothing to do
+    {'op': 'set'},                                                 # not a list
+])
+def test_ops_refuse_anything_they_cannot_apply_exactly(ops):
+    with pytest.raises(PatchError):
+        apply_ops({'title': 't', 'blocks': [{'rows': [1]}]}, ops)
+
+
+def test_ops_payload_is_bounded():
+    with pytest.raises(PatchError, match='too large'):
+        apply_ops({'t': 1}, [{'op': 'set', 'pointer': '/t', 'value': 'x' * 70_000}])
+    with pytest.raises(PatchError, match='200 ops'):
+        apply_ops({'t': 1}, [{'op': 'set', 'pointer': '/t', 'value': 1}] * 201)
+
+
+def test_outline_maps_structure_without_content():
+    body = outline(table_document(120))
+    assert body[0]['pointer'] == '/blocks/0' and body[0]['rows_count'] == 120
+    assert 'Network 7' not in json.dumps(body)
+
+
+# ---------------------------------------------------------------- fp_edit
+
+def test_edit_revises_one_value_for_a_fraction_of_the_document(tools):
+    doc = table_document()
+    tools['fp_render'](dumps(doc), 0, 0)
+    ops = [{'op': 'set', 'pointer': '/blocks/0/rows/3/cells/1', 'value': '41.2'},
+           {'op': 'set', 'pointer': '/note', 'value': 'Revised after review'}]
+    result = tools['fp_edit'](dumps(ops), 1, 0)
+    assert result['committed'] and result['revision'] == 2
+    assert result['ops_applied'] == ['/blocks/0/rows/3/cells/1', '/note']
+    stored = tools['fp_inspect'](include_source=True)['input']
+    assert stored['blocks'][0]['rows'][3]['cells'][1] == '41.2'
+    assert stored['note'] == 'Revised after review'
+    assert stored['blocks'][0]['rows'][4] == doc['blocks'][0]['rows'][4]
+    # The economics, not a style preference: naming the change costs ~1% of resending it.
+    assert chars(ops) * 20 < chars(doc)
+
+
+def test_edit_keeps_every_gate_a_full_render_has(tools):
+    doc = table_document(8)
+    tools['fp_render'](dumps(doc), 0, 0)
+    ops = dumps([{'op': 'set', 'pointer': '/title', 'value': 'Second look'}])
+    with pytest.raises(ConflictError):      # stale document revision
+        tools['fp_edit'](ops, 0, 0)
+    with pytest.raises(ConflictError):      # stale research revision
+        tools['fp_edit'](ops, 1, 7)
+    with pytest.raises(design.DesignRulesError):   # unacknowledged design rules
+        tools['fp_edit'](ops, 1, 0, design_rules='{}')
+    with pytest.raises(PatchError):         # a pointer that does not resolve
+        tools['fp_edit'](dumps([{'op': 'set', 'pointer': '/blocks/4/title', 'value': 'x'}]), 1, 0)
+    assert tools['fp_inspect']()['revision'] == 1   # nothing committed by the refusals
+
+
+def test_edit_refuses_a_document_that_breaks_the_design_rules(tools):
+    tools['fp_render'](dumps(table_document(4)), 0, 0)
+    # An empty required frame field is a decidable violation, and an edit can create one.
+    with pytest.raises(design.DesignRulesError):
+        tools['fp_edit'](dumps([{'op': 'set', 'pointer': '/title', 'value': ''}]), 1, 0)
+
+
+def test_edit_needs_a_first_revision(tools):
+    with pytest.raises(ValueError, match='fp_render'):
+        tools['fp_edit'](dumps([{'op': 'set', 'pointer': '/title', 'value': 'x'}]), 0, 0)
+
+
+# ---------------------------------------------------------------- readers
+
+def test_inspect_returns_an_outline_not_the_document(tools):
+    doc = table_document(120)
+    tools['fp_render'](dumps(doc), 0, 0)
+    view = tools['fp_inspect']()
+    assert 'input' not in view
+    assert view['outline'][0]['rows_count'] == 120
+    assert view['source_sha256'] and view['frame']['title'] == doc['title']
+    # Inspect runs before every edit; it must not scale with the document.
+    assert chars(view) < 2_500 < chars(doc)
+    assert chars(tools['fp_inspect'](include_source=True)) > chars(doc)
+
+
+def test_inspect_summarises_research_without_the_excerpts(tmp_path, tools):
+    store = Store(tmp_path)
+    page = 'Network A reported 41.2 percent in Q3. ' + 'context filler. ' * 400
+    src = store.capture('https://example.test/q3', page,
+                        {'kind': 'web_fetch', 'origin': 'transport', 'truncated': False})
+    excerpt = 'Network A reported 41.2 percent in Q3.'
+    tools['fp_research'](dumps({
+        'brief': {'goal': 'g', 'audience': 'a', 'main_message': 'm', 'as_of': '2026-09-13'},
+        'claims': [{'id': 'a', 'statement': 'A reported 41.2', 'status': 'supported',
+                    'source_id': src['id'], 'excerpt': excerpt,
+                    'bindings': [{'pointer': '/blocks/0/rows/0/cells/1', 'value': '41.2'}]}],
+        'decisions': ['Use Q3'], 'open_questions': []}), 0)
+    view = tools['fp_inspect']()
+    body = json.dumps(view, ensure_ascii=False)
+    assert excerpt not in body and page[:60] not in body
+    claim = view['research']['claims'][0]
+    assert claim == {'pointer': '/claims/0', 'id': 'a', 'status': 'supported',
+                     'source_id': src['id'], 'bindings': 1, 'statement': 'A reported 41.2'}
+    assert view['sources']['count'] == 1 and view['sources']['latest'][0]['id'] == src['id']
+    # And the excerpt is still readable, by pointer, when it is actually needed.
+    assert tools['fp_source']('/claims/0', doc='research')['value']['excerpt'] == excerpt
+
+
+def test_source_reads_a_slice_and_reports_shape_when_too_large(tools):
+    tools['fp_render'](dumps(table_document(120)), 0, 0)
+    assert tools['fp_source']('/blocks/0/rows/2/cells')['value'] == ['Network 2', '6', 'stable']
+    big = tools['fp_source']('/blocks/0/rows')
+    assert big['too_large'] and 'value' not in big
+    assert big['shape_chars_per_child'][0]['pointer'] == '/blocks/0/rows/0'
+    with pytest.raises(ValueError, match='No such path'):
+        tools['fp_source']('/blocks/9')
+
+
+def test_source_text_pages_and_searches_the_captured_page(tmp_path, tools):
+    store = Store(tmp_path)
+    page = 'head. ' * 500 + 'THE NUMBER IS 41.2 percent. ' + 'tail. ' * 500
+    src = store.capture('https://example.test/p', page,
+                        {'kind': 'web_fetch', 'origin': 'transport', 'truncated': False})
+    first = tools['fp_source_text'](src['id'], limit=1000)
+    assert first['total_chars'] == len(page) and len(first['text']) == 1000
+    assert first['next_offset'] == 1000
+    second = tools['fp_source_text'](src['id'], offset=first['next_offset'], limit=1000)
+    assert second['text'] == page[1000:2000]
+    found = tools['fp_source_text'](src['id'], find='THE NUMBER IS 41.2', limit=400)
+    assert found['matches'] == 1 and 'THE NUMBER IS 41.2 percent.' in found['windows'][0]['text']
+    assert chars(found) < 1_500 < len(page)
+
+
+def test_history_stays_flat_as_revisions_accumulate(tools):
+    tools['fp_render'](dumps(table_document(6)), 0, 0)
+    for revision in range(1, 4):
+        tools['fp_edit'](dumps([{'op': 'set', 'pointer': '/title', 'value': f't{revision}'}]),
+                         revision, 0)
+    listing = tools['fp_history']()
+    assert [r['revision'] for r in listing['revisions']] == [4, 3, 2, 1]
+    body = json.dumps(listing)
+    assert 'Pretendard' not in body and 'fonts' not in body
+    assert chars(listing) < 2_000
+
+
+# ---------------------------------------------------------------- web_fetch
+
+def test_web_fetch_returns_the_head_and_keeps_the_whole_page(tmp_path):
+    page = 'Network A reported 41.2 percent. ' + 'filler. ' * 5_000
+    wrapped = capture_web_fetch(
+        lambda url: {'url': url, 'text': page, 'content_type': 'text/html', 'truncated': False},
+        tmp_path)
+    out = wrapped('https://example.test/report')
+    assert len(out['text']) == EXCERPT_CHARS < len(page)
+    assert out['text'] == page[:EXCERPT_CHARS]
+    assert out['fp_excerpt']['total_chars'] == len(page)
+    sid = out['fp_evidence']['id']
+    assert out['fp_excerpt']['source_id'] == sid
+    assert Store(tmp_path).source(sid)['text'] == page   # provenance keeps every byte
+
+
+def test_web_fetch_leaves_a_short_page_alone(tmp_path):
+    wrapped = capture_web_fetch(
+        lambda url: {'url': url, 'text': 'short page', 'truncated': False}, tmp_path)
+    out = wrapped('https://example.test/s')
+    assert out['text'] == 'short page' and 'fp_excerpt' not in out
+
+
+def test_web_fetch_never_drops_text_it_could_not_store(tmp_path):
+    page = 'x' * (2 * 1024 * 1024)   # over the 1 MiB capture limit: no receipt
+    wrapped = capture_web_fetch(lambda url: {'url': url, 'text': page}, tmp_path)
+    out = wrapped('https://example.test/big')
+    assert out['text'] == page and 'fp_evidence' not in out
+    assert 'exceeds 1 MiB' in out['fp_evidence_error']
+
+
+# ---------------------------------------------------------------- research edits
+
+def test_research_edit_revalidates_the_whole_result(tmp_path, tools):
+    store = Store(tmp_path)
+    src = store.capture('https://example.test/r', 'Network A has value 10.',
+                        {'kind': 'web_fetch', 'origin': 'transport', 'truncated': False})
+    tools['fp_research'](dumps({
+        'brief': {'goal': 'g', 'audience': 'a', 'main_message': 'm', 'as_of': '2026-09-13'},
+        'claims': [{'id': 'a', 'statement': 'value', 'status': 'unresolved',
+                    'bindings': [{'pointer': '/blocks/0/rows/0/cells/1', 'value': '10'}]}],
+        'open_questions': ['Confirm the denominator']}), 0)
+    # Promoting a claim still needs a verbatim passage from a captured receipt.
+    with pytest.raises(ValueError, match='verbatim passage'):
+        tools['fp_research_edit'](dumps([
+            {'op': 'set', 'pointer': '/claims/0/status', 'value': 'supported'},
+            {'op': 'set', 'pointer': '/claims/0/source_id', 'value': src['id']},
+            {'op': 'set', 'pointer': '/claims/0/excerpt', 'value': 'Network A has value 99.'}]), 1)
+    saved = tools['fp_research_edit'](dumps([
+        {'op': 'set', 'pointer': '/claims/0/status', 'value': 'supported'},
+        {'op': 'set', 'pointer': '/claims/0/source_id', 'value': src['id']},
+        {'op': 'set', 'pointer': '/claims/0/excerpt', 'value': 'Network A has value 10.'},
+        {'op': 'set', 'pointer': '/open_questions', 'value': []}]), 1)
+    assert saved['revision'] == 2
+    assert saved['research']['claims'][0]['status'] == 'supported'
+    assert saved['research']['open_questions'] == []
+    with pytest.raises(ConflictError):
+        tools['fp_research_edit'](dumps([{'op': 'set', 'pointer': '/claims/0/note', 'value': 'x'}]), 1)
+
+
+def test_research_write_result_is_a_summary_not_an_echo(tmp_path, tools):
+    store = Store(tmp_path)
+    long_statement = 'A reported the figure under a stable denominator. ' * 20
+    src = store.capture('https://example.test/e', 'Network A has value 10.',
+                        {'kind': 'web_fetch', 'origin': 'transport', 'truncated': False})
+    saved = tools['fp_research'](dumps({
+        'brief': {'goal': 'g', 'audience': 'a', 'main_message': 'm'},
+        'claims': [{'id': 'a', 'statement': long_statement, 'status': 'supported',
+                    'source_id': src['id'], 'excerpt': 'Network A has value 10.', 'bindings': []}]}), 0)
+    assert saved['revision'] == 1
+    assert 'Network A has value 10.' not in json.dumps(saved)
+    assert saved['research']['claims'][0]['statement'].endswith('…')
+
+
+# ---------------------------------------------------------------- wiring
+
+def test_every_fp_write_tool_is_risk_classified_and_root_scoped():
+    """A write tool missing from either table writes without root scoping."""
+    for name in WRITE_TOOLS:
+        assert risk.classify(name) is risk.RiskClass.WRITE_LOCAL, name
+        paths, located = permissions.write_paths(name, {'name': 'infographic'})
+        assert located and paths, name
+
+
+def test_the_fixed_per_call_cost_stays_within_its_budget():
+    """Instructions + tool schemas are re-sent on EVERY model call of the conversation.
+
+    Unlike a tool result, this cost is invisible in any single exchange: it is paid once
+    per iteration, up to twelve times per user turn. The budget is what stops policy from
+    being restated in a docstring, or a tool's mechanics from being restated in the
+    prompt. Raising it is a product decision, not a refactor.
+
+    It has been raised four times, each time for a capability: reproduce mode
+    (`fp_capture_image` and the redraw rule), the final inspection gate (`fp_review`'s
+    checklist and `fp_publish`'s verdicts), routing a source the user SUPPLIES - a pasted
+    diagram is captured like an attachment, and the prompt now has to say so and name
+    `referenceWaiver` - and the one-call draw route (`fp_guide('draw')` serving the
+    contracts with every required rule card and digest, plus `appendix=True` for the frame
+    arithmetic behind a card). 15,479 chars before the duplication was removed, 12,762
+    after, 15,009 with the first two capabilities, 15,158 with the third, 15,681 with the
+    fourth - bought by removing two round trips per document, each of which replayed the
+    entire transcript.
+    """
+    from coworker.tools.registry import ToolRegistry
+    from coworker.fp.prompt import INSTRUCTIONS
+
+    registry = ToolRegistry()
+    for fn in fp_tools(tempfile.mkdtemp()):
+        registry.register(fn)
+    schemas = registry.schemas()
+    assert len(schemas) == 16
+
+    per_tool = {(s.get('function') or s)['name']: chars(s) for s in schemas}
+    assert max(per_tool.values()) <= 1_300, per_tool
+    assert chars(schemas) + len(INSTRUCTIONS) <= 15_800, (chars(schemas), len(INSTRUCTIONS))
+
+
+# ---------------------------------------------------------------- the rules a document reads
+
+def test_a_rule_card_stays_within_its_byte_cap():
+    """A card is replayed on every authoring call of the conversation; the appendix is
+    read once, on demand, and only when a frame value is in doubt.
+
+    Before the split the mandatory reading for a table document was 11,167 chars of
+    guideline, most of it Figma authoring mechanics (clone the frame, set the footer Y
+    last, cell fill sizing) that fp-kit draws deterministically from the Frame Guide and
+    the model cannot author. The cap is what stops that text from coming back.
+    """
+    for name in design.SKILLS:
+        size = len(design.skill_path(name).read_bytes())
+        assert size <= design.MAX_CARD_BYTES, (name, size)
+    for document, ceiling in (
+        (table_document(), 6_600),
+        ({'title': 'x', 'blocks': [{'kind': 'chart', 'template': 'bar'}]}, 7_500),
+        ({'title': 'x', 'blocks': [{'kind': 'chart', 'template': 'flowchart'}]}, 7_800),
+    ):
+        read = sum(len(design.load(n)['rules']) for n in design.required(document))
+        assert read <= ceiling, (design.required(document), read)
+
+
+def test_one_call_serves_the_contract_and_every_rule_it_requires(tools, tmp_path):
+    """The read side of a first render is one round trip, not four.
+
+    Every round trip replays the whole transcript, so fp_guide('vocabulary') +
+    fp_guide('grammar') + fp_design_rules(index) + fp_design_rules(grammar) paid for the
+    conversation three extra times before a single block was authored.
+    """
+    guide = tools['fp_guide']('draw', 'table')
+    assert [g['id'] for g in guide['grammars']] == ['table']
+    assert [r['name'] for r in guide['design_rules']] == ['fp-design-system', 'fp-design-table']
+    assert set(guide['acknowledge']) == {'fp-design-system', 'fp-design-table'}
+    assert 'FPInput' in guide['input']['contract']
+    # The digest map the same call returned is accepted by the gate as it stands.
+    out = tools['fp_render'](dumps(table_document(4)), 0, 0, json.dumps(guide['acknowledge']))
+    assert out['committed'] is True
+    # A redraw needs the reproduce rules in the same single call.
+    assert 'fp-design-reproduce' in tools['fp_guide']('draw', 'flowchart', True)['acknowledge']
+    # The appendix never rides along.
+    assert 'Gap between the title and the infographic is 98px' not in json.dumps(guide)

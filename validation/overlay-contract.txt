@@ -1,0 +1,1 @@
+overlay-contract: no new application, pages, templates, JSX components or CSS

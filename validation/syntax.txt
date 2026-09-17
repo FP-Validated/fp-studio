@@ -1,0 +1,1 @@
+Python, TypeScript, Node and shell syntax checks passed. Native integration NOT run.

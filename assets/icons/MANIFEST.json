@@ -1,0 +1,21 @@
+{
+ "surfaces/gui/src-tauri/icons/128x128.png": "dcf7c18acfdb082f9c785b9a2c3c35620e16b7140ba1c94538e01c8cb7083558",
+ "surfaces/gui/src-tauri/icons/128x128@2x.png": "15912343b6407e9c2ba54c689887e9629df6771dc7b61f447d6d6d4f30338398",
+ "surfaces/gui/src-tauri/icons/32x32.png": "32848d56dc25fa77be12564e9a482046cadbe6c7ec96a9bdbcb398af6fadd99b",
+ "surfaces/gui/src-tauri/icons/64x64.png": "b815ae517ae0427bd980aaf041519b4d50cca1327e8fde71d2564adfe786a4a2",
+ "surfaces/gui/src-tauri/icons/Square107x107Logo.png": "960e4042e7f233860cc0469aac79f2b6823f0c2119bb263280f2bd2459c3aa59",
+ "surfaces/gui/src-tauri/icons/Square142x142Logo.png": "04005d1813c630d5fb1fa5a87bcb21c2c3708a8005e6411126d8222db4ce558d",
+ "surfaces/gui/src-tauri/icons/Square150x150Logo.png": "f94dec045960062bff6c920a63096e0a6da61e201a4cca5bf4c0f3f3284bed72",
+ "surfaces/gui/src-tauri/icons/Square284x284Logo.png": "7b2036d1a0dad0689433527ea543b9e03e95ef0e520a141c10b70baf8a78453c",
+ "surfaces/gui/src-tauri/icons/Square30x30Logo.png": "2f26a6a9c4aa8ef53629a06e01571587b7b9787712e272a5fd2443417ae86de5",
+ "surfaces/gui/src-tauri/icons/Square310x310Logo.png": "1c5f9b63eb79bdaf34ee61a2eb237a2deedeb221a60b146b7509a5d7152cfd36",
+ "surfaces/gui/src-tauri/icons/Square44x44Logo.png": "79f321cf4d2ca92a771ec9f2cd95a61481a51dd2fb28dca8f4d81462300ad365",
+ "surfaces/gui/src-tauri/icons/Square71x71Logo.png": "3d064647af3c8dc0fa43f5bba7ea11f3715c74d556b1bcd4242140978d31a082",
+ "surfaces/gui/src-tauri/icons/Square89x89Logo.png": "10d0454ac214c516914bacccfe80ca9e3e7e5f1b393b521ca6c45677673d5653",
+ "surfaces/gui/src-tauri/icons/StoreLogo.png": "0882e5bdc1ebf7b18c4caa57a5d609afacdd109eb7f94e18e3fa87240dcfe98f",
+ "surfaces/gui/src-tauri/icons/icon.icns": "3a0c5bfa05bce78cf2d647a9b19d265476c65de73918572116b10a0867b39a4d",
+ "surfaces/gui/src-tauri/icons/icon.ico": "5d39d7d9cfb9515ae4a9d29d96a96a8dea331e444b24c88a42e8092882c6e071",
+ "surfaces/gui/src-tauri/icons/icon.png": "ce351a908f083b3052c84c7501e4f515f731567c83c5fafaeb785e00c19db4fb",
+ "surfaces/gui/src-tauri/icons/tray.png": "c737e60eadf480fe2836a8baf10b9d02d44f445e663cd9f98aca3fc1d2eff850",
+ "surfaces/gui/src-tauri/icons/tray.rgba": "aa4c33f0a9b90d2a00ea71892384b87a42c16de88a2edd09f5d44d411c3e3405"
+}

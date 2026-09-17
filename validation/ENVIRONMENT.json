@@ -1,0 +1,15 @@
+{
+  "date": "2026-09-11",
+  "execution_platform": "Linux",
+  "python": "3.13.5",
+  "node": "22.16.0",
+  "local_tests": {"python": 65, "node": 27, "preview_helper": 3},
+  "signed_dmg_built": false,
+  "full_upstream_checkout_assembled": false,
+  "production_fp_compiler_and_resvg_run": false,
+  "live_provider_called": false,
+  "native_gui_tested": false,
+  "test_doubles": ["persistence renderer", "valid synthetic PNG", "synthetic font tables", "patch anchor fixture"],
+  "upstream_read_method": "connected GitHub source reader",
+  "container_git_network_failure": "Could not resolve host: github.com"
+}
