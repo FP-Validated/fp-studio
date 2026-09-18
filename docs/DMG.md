@@ -1,16 +1,17 @@
 # macOS build and internal release
 
-This document describes the build path. It produced `FP Studio_0.3.6_aarch64.dmg` on **2026-09-17**: Developer ID
-signature (`Hyunmin kim (KH55W9G87F)`, timestamp 13:38:53), **notarized (`Accepted`) and stapled**, sha256
-`31d581251ee314305d82371c75ceec03ab624b988c22130901caa2a6391368c2`, published at
-https://github.com/FP-Validated/fp-studio/releases/tag/v0.3.6 . The 0.3.0 through 0.3.5 builds of the same day were
-notarized the same way and all six DMGs were withdrawn from their releases, because each shipped a frame that was
-wrong in what it showed - a broken attached-image redraw, clipped table cells, a collapsed table head, a bar
-grammar that could not hold a second series, a reproduce gate that could not see a value stored under a column the
-author named, and a reproduce gate a two-image turn could only get past by waiving it and composing from the web.
-A copy downloaded anonymously, carrying the browser's quarantine attribute, reports
-`accepted - source=Notarized Developer ID` and validates its stapled ticket. Preserve the original OpenWorker GUI
-and run these gates on the actual target Mac; installation on a clean, separate Mac is untested.
+This document describes the build path. It produced `FP Studio_0.3.7_aarch64.dmg` on **2026-09-18**: Developer ID
+signature (`Hyunmin kim (KH55W9G87F)`, timestamp 11:52:16), **notarized (`Accepted`) and stapled**, sha256
+`4c40aae7a3a0d8c4375253119c0024180ba1d6d7291f7cf223e0a655c3019770`, published at
+https://github.com/FP-Validated/fp-studio/releases/tag/v0.3.7 . The 0.3.0 through 0.3.5 builds were notarized the
+same way and every DMG was withdrawn, because each shipped a frame that was wrong in what it showed - a broken
+attached-image redraw, clipped table cells, a collapsed table head, a bar grammar that could not hold a second
+series, a reproduce gate that could not see a value stored under a column the author named, and a reproduce gate a
+two-image turn could only get past by waiving it and composing from the web. 0.3.6 drew correctly but could only
+draw dark and never asked, so its DMG is withdrawn as superseded rather than defective. A copy downloaded
+anonymously, carrying the browser's quarantine attribute, reports `accepted - source=Notarized Developer ID` and
+validates its stapled ticket. Preserve the original OpenWorker GUI and run these gates on the actual target Mac;
+installation on a clean, separate Mac is untested.
 
 ## 1. Prepare and assemble
 
