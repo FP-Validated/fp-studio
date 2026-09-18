@@ -82,6 +82,22 @@ class Store:
             db.execute("INSERT OR REPLACE INTO meta VALUES (?,?)",
                        (f"served:{key}", str(time.time())))
 
+    def appearance(self) -> dict | None:
+        """Light or dark, as the USER declared it - or nothing at all.
+
+        Kept beside the workspace rather than in a document because it is a decision about
+        the conversation, and because a value the model can write is not a declaration.
+        """
+        with self.connect() as db:
+            row = db.execute("SELECT value FROM meta WHERE key='appearance'").fetchone()
+        return json.loads(row[0]) if row else None
+
+    def set_appearance(self, mode: str, quote: str, channel: str) -> dict:
+        record = {"mode": mode, "quote": quote[:200], "channel": channel, "at": time.time()}
+        with self.connect() as db:
+            db.execute("INSERT OR REPLACE INTO meta VALUES ('appearance',?)", (dumps(record),))
+        return record
+
     def current_revision(self, name: str, db=None) -> int:
         valid_name(name)
         if db is None:

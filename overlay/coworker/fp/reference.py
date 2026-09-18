@@ -256,6 +256,20 @@ def capture_structure(store: Store, text: str, locator: str, form: str,
     )
 
 
+def record_appearance(store: Store, text: Any, channel: str) -> dict | None:
+    """Store a light/dark declaration if the user's words carry one.
+
+    Both channels a user speaks through land here: the message they typed and the answer
+    they gave `ask_user`. The model never calls this; it has no tool that does.
+    """
+    from .design import appearance_declaration
+
+    found = appearance_declaration(text)
+    if not found:
+        return None
+    return store.set_appearance(found["mode"], found["quote"], channel)
+
+
 def capture_turn(workspace: str | Path, text: Any, attachments: Iterable[Any]) -> list[dict]:
     """Capture every source of one user turn - images AND pasted structures.
 
@@ -289,6 +303,12 @@ def capture_turn(workspace: str | Path, text: Any, attachments: Iterable[Any]) -
             out.append(capture_image(store, data, f"attachment:{name}"))
         except (ReferenceError, ValueError, OSError):
             continue
+    # Light or dark is the user's call, and this is where their words arrive. An answer to
+    # ask_user comes back through the engine instead, which records it the same way.
+    try:
+        record_appearance(store, text, "message")
+    except Exception:
+        pass
     try:
         structures = detect_structures(text)
     except Exception:

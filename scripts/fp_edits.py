@@ -16,19 +16,9 @@ EDITS: tuple[tuple[str, str, str, str], ...] = (
     ),
     (
         'coworker/agent.py',
-        '        )\n    # Web search + fetch: research tools for every agent (keyless DuckDuckGo default).\n    registry.register(make_web_search_tool(secrets))\n    registry.register(make_web_fetch_tool())\n    # ask_user: the universal human-in-the-loop Q&A primitive (every agent; engine-intercepted).\n    if question_asker is not None:\n        registry.register(ask_user_tool())\n',
-        '        )\n    # FP Studio draws what the user hands over. There is no web research surface: no\n    # search, no fetch, no page to mistake for the source. A user who attaches an image\n    # asked for that image, and the one failure this product exists to prevent is a\n    # confident picture assembled from somewhere else.\n    # ask_user: the universal human-in-the-loop Q&A primitive (every agent; engine-intercepted).\n    if question_asker is not None:\n        registry.register(ask_user_tool())\n',
+        '                roots=root_list or None,\n            )\n        )\n    # Web search + fetch: research tools for every agent (keyless DuckDuckGo default).\n    registry.register(make_web_search_tool(secrets))\n    registry.register(make_web_fetch_tool())\n    # ask_user: the universal human-in-the-loop Q&A primitive (every agent; engine-intercepted).\n    if question_asker is not None:\n        registry.register(ask_user_tool())\n',
+        '                roots=root_list or None,\n            )\n        )\n    # FP Studio draws what the user hands over. There is no web research surface: no\n    # search, no fetch, no page to mistake for the source. A user who attaches an image\n    # asked for that image, and the one failure this product exists to prevent is a\n    # confident picture assembled from somewhere else.\n    # ask_user: the universal human-in-the-loop Q&A primitive (every agent; engine-intercepted).\n    if question_asker is not None:\n        registry.register(ask_user_tool())\n',
         'coworker/agent.py#2',
-    ),
-    (
-        'tests/test_web_search.py',
-        '    assert "web_search" in eng.registry.names()\n',
-        '    # FP Studio removes the web research surface: the tool factories still exist\n'
-        '    # upstream, but this product never registers them. A user who attaches a source\n'
-        '    # asked for that source, and a model with a search tool researches instead.\n'
-        '    assert "web_search" not in eng.registry.names()\n'
-        '    assert "web_fetch" not in eng.registry.names()\n',
-        'tests/test_web_search.py#1',
     ),
     (
         'coworker/agent.py',
@@ -152,9 +142,15 @@ EDITS: tuple[tuple[str, str, str, str], ...] = (
     ),
     (
         'coworker/server/app.py',
+        '                            },\n                        }\n                    )\n            return answer_result(item.questions, await manager.inbox.wait(item.id))\n\n        async def tool_requester(args: dict, tool_call_id=None) -> dict:\n            """Park a TOOL_REQUESTED prompt, then install the PINNED build if approved.\n',
+        '                            },\n                        }\n                    )\n            result = answer_result(item.questions, await manager.inbox.wait(item.id))\n            # FP: light or dark is the user\'s call, and this is the OTHER channel their\n            # words arrive through - a message records itself in capture_turn, an answer\n            # to ask_user comes back here. Nothing the model writes reaches either.\n            try:\n                from ..fp.reference import record_appearance\n                from ..fp.store import Store\n            except ImportError:\n                record_appearance = None\n            if record_appearance is not None and workspace:\n                spoken = " ".join(\n                    str(value) for value in\n                    [result.get("answer"), *(result.get("answers") or {}).values()] if value\n                )\n                try:\n                    record_appearance(Store(workspace), spoken, "ask")\n                except Exception:\n                    pass\n            return result\n\n        async def tool_requester(args: dict, tool_call_id=None) -> dict:\n            """Park a TOOL_REQUESTED prompt, then install the PINNED build if approved.\n',
+        'coworker/server/app.py#2',
+    ),
+    (
+        'coworker/server/app.py',
         '                        )\n                    await _apply_model(model)\n                    if text or attachments:\n                        content = build_user_content(text, attachments)\n                        await claim_turn(content=content, display=display)\n                else:\n',
         "                        )\n                    await _apply_model(model)\n                    if text or attachments:\n                        # FP reproduce mode: an attached image AND a diagram or table the\n                        # user pastes are sources with receipts, and the redraw needs a\n                        # file to point at rather than a data URL replayed on every later\n                        # model call. Best-effort: a capture failure must never block the\n                        # user's message.\n                        try:\n                            from ..fp.reference import capture_turn\n                        except ImportError:\n                            capture_turn = None\n                        if capture_turn is not None and workspace:\n                            try:\n                                capture_turn(workspace, text, attachments)\n                            except Exception:\n                                pass\n                        content = build_user_content(text, attachments)\n                        await claim_turn(content=content, display=display)\n                else:\n",
-        'coworker/server/app.py#2',
+        'coworker/server/app.py#3',
     ),
     (
         'coworker/server/manager.py',
@@ -261,7 +257,7 @@ EDITS: tuple[tuple[str, str, str, str], ...] = (
     (
         'pyproject.toml',
         '\n[tool.setuptools.package-data]\ncoworker = [\n    "personas/builtin/*.md",\n    "personas/builtin/*/manifest.md",\n    "personas/builtin/*/skills/*/SKILL.md",\n',
-        '\n[tool.setuptools.package-data]\ncoworker = [\n    # The FOUR PILLARS design rules fp_render enforces, decision card plus appendix. A\n    # wheel/sidecar without them cannot render, so they are package data, not just bundle\n    # resources.\n    "fp/design_skills/*/*.md",\n    "personas/builtin/*.md",\n    "personas/builtin/*/manifest.md",\n    "personas/builtin/*/skills/*/SKILL.md",\n',
+        '\n[tool.setuptools.package-data]\ncoworker = [\n    # The FOUR PILLARS design rules fp_render enforces. A wheel/sidecar without them\n    # cannot render, so they are package data, not just bundle resources.\n    "fp/design_skills/*/SKILL.md",\n    "personas/builtin/*.md",\n    "personas/builtin/*/manifest.md",\n    "personas/builtin/*/skills/*/SKILL.md",\n',
         'pyproject.toml#1',
     ),
     (
@@ -1547,5 +1543,11 @@ EDITS: tuple[tuple[str, str, str, str], ...] = (
         '    data_dir = tmp_path / "data"\n    client = TestClient(create_app(SessionManager(data_dir=data_dir)))\n\n    # defaults to ~/OpenWorker\n    assert client.get("/v1/settings").json()["scratch_base"] == "~/OpenWorker"\n\n    base = tmp_path / "my coworker files"\n    resp = client.post("/v1/settings/scratch-base", json={"path": str(base)}).json()\n',
         '    data_dir = tmp_path / "data"\n    client = TestClient(create_app(SessionManager(data_dir=data_dir)))\n\n    # Defaults to the one workspace FP Studio works in.\n    assert client.get("/v1/settings").json()["scratch_base"] == "~/fpstudio"\n\n    base = tmp_path / "my coworker files"\n    resp = client.post("/v1/settings/scratch-base", json={"path": str(base)}).json()\n',
         'tests/test_settings.py#1',
+    ),
+    (
+        'tests/test_web_search.py',
+        '        provider=_StubProvider(),\n        secrets=SecretStore(tmp_path / "s.json"),\n    )\n    assert "web_search" in eng.registry.names()\n\n\nclass _StubProvider:\n',
+        '        provider=_StubProvider(),\n        secrets=SecretStore(tmp_path / "s.json"),\n    )\n    # FP Studio removes the web research surface: the tool factories still exist\n    # upstream, but this product never registers them. A user who attaches a source\n    # asked for that source, and a model with a search tool researches instead.\n    assert "web_search" not in eng.registry.names()\n    assert "web_fetch" not in eng.registry.names()\n\n\nclass _StubProvider:\n',
+        'tests/test_web_search.py#1',
     ),
 )

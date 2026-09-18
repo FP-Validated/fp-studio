@@ -5,7 +5,7 @@ import { Resvg, initWasm } from '@resvg/resvg-wasm';
 import { validateRequest, validateFrame, stableStringify, sha256, ensureStatic } from './lib/contracts.mjs';
 import { inspectFont, requireGlyphCoverage } from './lib/fonts.mjs';
 const ROOT=path.dirname(fileURLToPath(import.meta.url));
-const COMMIT='2a22c2632177c5b8bea397169ec7fcbfcd664688';
+const COMMIT='c568776bab8128ea02703fc7960203c58077ff0e';
 const MAX=2*1024*1024;
 async function main() {
   let raw='';
@@ -19,6 +19,15 @@ async function main() {
   const themeId=req.input.theme ?? 'fp-v1';
   const themePath=path.join(kitRoot,'themes',themeId+'.json');
   const themeBytes=fs.readFileSync(themePath);
+  // A light pack is the measured difference from the dark one, so the receipt has to pin
+  // every file in the inheritance chain; pinning the leaf alone would let the base change
+  // under a rendered result without the fingerprint moving.
+  const themeChain=[themeId];
+  for (let next=JSON.parse(themeBytes).extends; next; ) {
+    if (themeChain.includes(next) || themeChain.length>4) throw Error('Theme pack inherits in a cycle');
+    themeChain.push(next);
+    next=JSON.parse(fs.readFileSync(path.join(kitRoot,'themes',next+'.json'))).extends;
+  }
   const fp=await import(pathToFileURL(path.join(kitRoot,'dist/src/index.js')).href);
   // Original FP compiler: no substitute renderer or hardcoded template implementation.
   const result=fp.render(req.input);
@@ -57,8 +66,9 @@ async function main() {
     try {png=Buffer.from(image.asPng());} finally {image.free();}
   } finally {raster.free();}
   if (png.byteLength>32*1024*1024) throw Error('PNG exceeds 32 MiB');
-  const themeFiles=fs.readdirSync(path.join(kitRoot,'themes')).filter(n=>n.startsWith(themeId+'.')).sort();
-  const theme={id:themeId,sha256:sha256(themeBytes),assets:themeFiles.map(n=>({name:n,sha256:sha256(fs.readFileSync(path.join(kitRoot,'themes',n)))}))};
+  const themeFiles=fs.readdirSync(path.join(kitRoot,'themes')).filter(n=>themeChain.some(id=>n.startsWith(id+'.'))).sort();
+  const theme={id:themeId,sha256:sha256(themeBytes),inherits:themeChain.slice(1),
+    assets:themeFiles.map(n=>({name:n,sha256:sha256(fs.readFileSync(path.join(kitRoot,'themes',n)))}))};
   const fontReceipts=fonts.map(({name,sha256})=>({name,sha256}));
   // Pin bytes and versions, not an unsupported promise of cross-renderer pixel equality.
   function codeFiles(dir,base=dir) {

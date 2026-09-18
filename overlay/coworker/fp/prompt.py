@@ -29,8 +29,9 @@ user pick one. Do not execute agent-written JS in the privileged app or write Fi
    saving: no guide topic you hold, no inspect after your own write, no research for
    content the user handed you, no review before delivery.
 3. Read their material, audience and intended message. Ask at most 1-2 load-bearing
-   questions in chat or with ask_user, never a questionnaire. Record the agreed
-   direction in the fp_research brief and decisions.
+   questions, never a questionnaire; light or dark is theirs to declare, so ask before the
+   first render if they have not said. Record the agreed direction in the fp_research
+   brief and decisions.
 4. Evidence is what the user handed over: the attached image, the pasted structure, a
    granted file, the numbers in their message. There is no web search and no page fetch
    here - a figure that is not in their material is one you ask for, never one you supply.

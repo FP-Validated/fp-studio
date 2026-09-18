@@ -86,10 +86,88 @@ _PLACEHOLDERS = re.compile(
     re.IGNORECASE,
 )
 _HEX = re.compile(r"#[0-9A-Fa-f]{3,8}$")
+# Light or dark is the user's call: the pack that draws follows their declaration, and a
+# document may not carry an appearance the conversation never chose.
+APPEARANCE_PACKS = {"dark": "fp-v1", "light": "fp-v1-light"}
+_APPEARANCE_WORDS = {
+    "dark": ("dark", "다크", "어두운", "어둡게", "검은", "블랙"),
+    "light": ("light", "white", "라이트", "화이트", "밝은", "밝게", "흰", "하얀"),
+}
+# A colour word alone is not a declaration: "Light Client Prover" is a subject, not a mode.
+_APPEARANCE_CONTEXT = (
+    "mode", "theme", "version", "background", "palette", "style",
+    "모드", "테마", "버전", "배경", "판", "스타일", "바탕",
+)
+_APPEARANCE_PARTICLE = re.compile(r"^\s*(?:로|으로|는|은|이|가|랑|과|와)")
+# The shape of an answer to a question: "Dark", "라이트", "둘 다".
+_APPEARANCE_ANSWER = 24
 
 
 class DesignRulesError(ValueError):
     """A design-rules refusal carrying the exact remedy in its message."""
+
+
+def appearance_declaration(text: Any) -> Optional[dict[str, str]]:
+    """Light or dark as the user stated it, or None. Only their words ever land here.
+
+    The gate this feeds must be satisfiable in one round trip, so a declaration is read
+    from a normal sentence as well as from a bare answer - but never from a colour word
+    standing alone in ordinary prose, or "Batch Prover And Light Client Prover" would
+    silently choose paper. A word counts when a mode word sits beside it, when a Korean
+    colour word takes a particle ("다크로"), or when the whole message is short enough to be
+    an answer to the question.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return None
+    body = text.strip()
+    low = body.lower()
+    answerish = len(body) <= _APPEARANCE_ANSWER
+    found: dict[str, str] = {}
+    for mode, words in _APPEARANCE_WORDS.items():
+        for word in words:
+            start = 0
+            while (at := low.find(word, start)) != -1:
+                start = at + len(word)
+                after = low[start:start + 16]
+                before = low[max(0, at - 16):at]
+                if (answerish
+                        or _APPEARANCE_PARTICLE.match(body[start:start + 4])
+                        or any(c in after or c in before for c in _APPEARANCE_CONTEXT)
+                        or word in ("어둡게", "밝게")):
+                    found[mode] = body[max(0, at - 40):start + 40].strip()
+                    break
+            if mode in found:
+                break
+    if not found:
+        return None
+    if len(found) == 2:
+        return {"mode": "both", "quote": max(found.values(), key=len)}
+    mode, quote = next(iter(found.items()))
+    return {"mode": mode, "quote": quote}
+
+
+def appearance_gate(recorded: Optional[dict], value: Any) -> None:
+    """Refuse a render until the user has chosen light or dark, and follow their choice.
+
+    The remedy is one call, and it is the only one: nothing the model can write records a
+    declaration. A gate whose way out is a string the model composes is not a gate - that
+    is how the reproduce gate came to be waived by a sentence the model wrote for itself.
+    """
+    if not recorded or recorded.get("mode") not in ("dark", "light", "both"):
+        raise DesignRulesError(
+            "Light or dark is the user's call and this conversation has not heard it. Ask "
+            "once - ask_user(question='Light or dark?', options=['Dark','Light','Both']) - "
+            "then render. Their answer records it; nothing you write can."
+        )
+    mode = recorded["mode"]
+    pack = (value.get("theme") if isinstance(value, dict) else None) or APPEARANCE_PACKS["dark"]
+    allowed = set(APPEARANCE_PACKS.values()) if mode == "both" else {APPEARANCE_PACKS[mode]}
+    if pack not in allowed:
+        raise DesignRulesError(
+            f"The user asked for {mode}, so render with theme='{sorted(allowed)[0]}'"
+            + (" or 'fp-v1' (one document per appearance)" if mode == "both" else "")
+            + f", not theme='{pack}'."
+        )
 
 
 def skills_dir() -> Path:

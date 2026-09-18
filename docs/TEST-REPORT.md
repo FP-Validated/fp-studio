@@ -203,6 +203,38 @@ came from a page, not from the image in the message.
 | Assembled tree, every FP suite plus upstream | 2,175 passed, 1 skipped |
 | Fixed per-call cost | 15,679 chars against the 15,800 cap — the two evidence items merged into one now that there is no fetch route to describe |
 
+## 2026-09-18 — 0.3.7: light or dark, and a pack that is a difference
+
+Patrick works (SECTION 28:3 in `FP Infographic Studio`) holds four templates and twenty-nine
+delivered frames: seventeen dark `#141414`, eight `#0C0D0F` built by the Figma route, and
+**six light `#E5E5E5` works**. The light appearance was never invented here; it was measured
+from those six and from `Template WhiteH:1080px` 28:92 / 28:177.
+
+| Defect | Root cause | Fix and its test |
+|---|---|---|
+| The product could only draw dark | `'light'` appeared nowhere in the renderer; sixteen literal greys outside `color.*` meant no light pack could swap them | Every literal is bound to a token (seven new named ramp steps). Test: neither pack carries a colour the palette does not name |
+| A second pack would drift | Packs did not compose, so light meant copying 560 fields | `loadTheme` resolves `extends` with an RFC 7386 merge. The light pack is 4 KB of measured difference. Tests: the light pack inherits typography, safe zone and title block from the dark one; the committed pack equals `scripts/derive-light.mjs` |
+| Gradients ignored the palette | `surfaceOps` and the card path passed theme gradients to the backend unresolved, so a token in a stop would have reached the SVG as a literal string | Both call `resolveGradient`. Without this the card and raised variants could not change with the pack |
+| Nothing asked which appearance | The model chose, or defaulted to dark | `fp_render` refuses until the user has declared; the refusal names `ask_user` and offers no waiver. Both channels record: a typed message via `capture_turn`, an `ask_user` answer via `question_asker`. Tests: refusal text, both channels, `"Batch Prover And Light Client Prover"` is not a declaration, and a document field cannot open the gate |
+| Switching pack would overwrite a delivered frame | The renderer fingerprint changes with the pack, so the drift guard fired with a message about compilers | The refusal now names the appearance switch and says to render the other one under its own name |
+| Bars dissolved on paper | `barFillFrom 0.4 -> barFillTo 0.05` reads as a glow above ink and as a bar fading into the page on paper | The light pack fills bars solid, as the six light works do; emphasis rides the stroke. Verified by rendering the same document in both packs through the shipped runtime |
+
+Light-mode rules, so a future pack is derived rather than guessed: the neutral ramp is
+mirrored **by rank** (every step keeps a measured brand grey, the ends trade places, and no
+role reference changes); chromatic colour keeps hue and saturation and loses only enough
+lightness to clear **3:1** against paper, capped at the measured chroma of the active
+`report` set; measured overrides beat both and cite their Figma node. The dark pack's edge
+gradient is deleted in light because the light template and all six works are a flat fill
+plus corner blobs.
+
+| Check | Result |
+|---|---|
+| fp-kit | 53 passed (48 before) |
+| Assembled tree, every FP suite plus upstream | 2,182 passed, 1 skipped |
+| Live runtime, light pack | refused with no declaration, refused with the dark pack, rendered light; receipt pins `fp-v1.json` + `fp-v1-light.json`, `inherits: ['fp-v1']` |
+| Fixed per-call cost | 15,747 chars against the 15,800 cap (one policy line, no new tool) |
+| Accent contrast on paper | blue 3.2:1, green 3.3:1, coral 3.2:1, amber 3.2:1 |
+
 ## Reassembly equivalence
 
 `python scripts/assemble.py --dest /tmp/fp-verify-8 --openworker-source ~/Developer/fp-studio-v0.3

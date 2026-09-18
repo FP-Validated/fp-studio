@@ -14,10 +14,15 @@ import pytest
 
 from coworker.fp import design
 from coworker.fp.design import DesignRulesError
+from coworker.fp.reference import record_appearance
+from coworker.fp.store import Store
 from coworker.tools.fp import fp_tools
 
 
 def _tools(workspace):
+    # Light or dark is a separate refusal with its own tests; declare it so these
+    # exercise the rule gate rather than that one.
+    Store(workspace).set_appearance('dark', 'dark mode', 'message')
     return {f.__name__: f for f in fp_tools(workspace)}
 
 
@@ -276,3 +281,68 @@ def test_render_reports_breaches_before_touching_the_renderer(tmp_path):
     assert "note is empty" in message and "minimum text size is 24" in message
     # Nothing was written: the gate runs before the compiler.
     assert not (tmp_path / "fp").exists()
+
+
+# -- light or dark is the user's call ------------------------------------------------
+
+
+REPORT = {"title": "Revenue", "template": "bar", "colorMode": "categorical",
+          "content": [{"id": "a", "K": "A", "V": 1}, {"id": "b", "K": "B", "V": 2}]}
+
+
+def _declared_render(workspace, mode, said):
+    Store(workspace).set_appearance(mode, said, "message")
+    return {f.__name__: f for f in fp_tools(workspace)}
+
+
+def test_render_refuses_until_the_user_has_chosen_light_or_dark(tmp_path):
+    tools = {f.__name__: f for f in fp_tools(tmp_path)}
+    with pytest.raises(DesignRulesError) as raised:
+        tools["fp_render"](json.dumps(REPORT), 0, 0, _acks(*design.required(REPORT)))
+    message = str(raised.value)
+    assert "ask_user" in message and "Light or dark" in message
+    # The remedy is reachable in one call and is the only one offered.
+    assert "waiv" not in message.lower() and "default" not in message.lower()
+
+
+def test_a_declaration_in_the_users_message_is_what_records_it(tmp_path):
+    store = Store(tmp_path)
+    assert store.appearance() is None
+    assert record_appearance(store, "라이트 모드로 만들어줘", "message")["mode"] == "light"
+    assert store.appearance()["channel"] == "message"
+    assert store.appearance()["quote"]
+    assert record_appearance(store, "Dark", "ask")["mode"] == "dark"
+    assert store.appearance()["channel"] == "ask", "an ask_user answer counts too"
+
+
+def test_a_colour_word_in_ordinary_prose_is_not_a_declaration():
+    prose = ("Batch Prover And Light Client Prover Operate Independently, With Both "
+             "Proofs Settling On Bitcoin")
+    assert design.appearance_declaration(prose) is None
+    assert design.appearance_declaration("draw the dark pool volume by venue") is None
+    assert design.appearance_declaration("") is None
+
+
+def test_the_declared_appearance_decides_the_pack(tmp_path):
+    tools = _declared_render(tmp_path, "light", "라이트 버전으로")
+    with pytest.raises(DesignRulesError) as raised:
+        tools["fp_render"](json.dumps(REPORT), 0, 0, _acks(*design.required(REPORT)))
+    assert "fp-v1-light" in str(raised.value)
+    light = dict(REPORT, theme="fp-v1-light")
+    out = tools["fp_render"](json.dumps(light), 0, 0, _acks(*design.required(light)))
+    assert out["ok"]
+
+
+def test_both_means_either_pack_may_be_rendered(tmp_path):
+    tools = _declared_render(tmp_path, "both", "라이트랑 다크 둘 다")
+    for pack in ("fp-v1", "fp-v1-light"):
+        document = dict(REPORT, theme=pack, title=f"Revenue {pack}")
+        design.appearance_gate(Store(tmp_path).appearance(), document)
+    with pytest.raises(DesignRulesError):
+        design.appearance_gate(Store(tmp_path).appearance(), dict(REPORT, theme="starter"))
+
+
+def test_nothing_the_model_writes_records_a_declaration(tmp_path):
+    # A document field is the model's own text, so it cannot open the gate.
+    with pytest.raises(DesignRulesError):
+        design.appearance_gate(None, dict(REPORT, theme="fp-v1-light", appearance="light"))

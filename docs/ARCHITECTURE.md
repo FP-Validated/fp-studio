@@ -33,6 +33,31 @@ Original OpenWorker conversation
 | SQLite Store | Immutable revisions, sources, publication receipts and authoritative artifact bytes |
 | Original GUI | User conversation and artifact display; no new editing surface |
 
+## Light or dark is the user's call
+
+Every colour in a frame comes from one theme pack, so the pack is not a preference to be
+inferred: a render before the user has said light or dark is a guess presented as a result.
+`fp_render` refuses until the declaration exists, and the refusal names the single call that
+produces one. Nothing the model writes can satisfy it - a document field is the model's own
+text, and a gate whose way out is a string the model composes is not a gate.
+
+Two channels carry the user's words and both record the same way: the message they type
+reaches `capture_turn`, and an answer to `ask_user` comes back through the server's
+`question_asker`. A colour word alone is not a declaration, or "Batch Prover And Light
+Client Prover" would silently choose paper; a mode word beside it, a Korean particle
+("다크로"), or a message short enough to be an answer is.
+
+The light pack is the dark pack's measured DIFFERENCE, resolved by `loadTheme` through
+`extends`, because two full copies of 560 fields drift and the drift is invisible until it
+renders. The neutral ramp is mirrored by rank, so paper and ink trade places while every
+role reference stays as it was; chromatic colour keeps its hue and loses only enough
+lightness to clear 3:1 against paper. Measured overrides beat both rules and each names the
+Figma node it was read from. A rendered receipt pins every file in the chain, so a base
+edited afterwards moves the fingerprint.
+
+A light version and a dark version are two artifacts, not two revisions of one: rendering an
+existing document with the other pack is refused, and the refusal says to use another name.
+
 ## Source versus authority
 
 Evidence is what the user hands over: an attached image, a structure pasted into the message, a file under a granted root. This build registers no web search and no page fetch. A user who attaches a source asked for that source, and the delivered failure this removal exists for is a frame whose numbers came from a page the model found rather than from the image in the message. The tool factories remain upstream; the FP build does not register them.

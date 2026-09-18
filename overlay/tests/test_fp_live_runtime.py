@@ -3,6 +3,7 @@ No model credentials are used. This tests the actual pinned compiler, not a mock
 """
 import json
 import os
+import pytest
 from coworker.fp import design
 from coworker.fp.rendering import RenderController, validate_artifacts
 from coworker.tools.fp import fp_tools
@@ -11,13 +12,14 @@ from coworker.fp.store import Store
 def test_real_fp_compiler_to_svg_png_and_revision(tmp_path):
     assert os.environ.get('FP_STUDIO_TESTING')!='1'
     source={'title':'FP runtime verification','blocks':[{'kind':'text','text':'Actual compiler output. 실제 렌더링 검증.'}]}
+    Store(tmp_path).set_appearance('dark', 'dark mode', 'message')
     tools={t.__name__:t for t in fp_tools(tmp_path)}
     # The shipped design rules are part of the package under test: a bundle that cannot
     # serve them cannot render at all, so acknowledge them from the installed files.
     rules=json.dumps({n:design.digest(n) for n in design.required(source)})
     first=tools['fp_render'](json.dumps(source,ensure_ascii=False),0,0,rules)
     assert first['ok'] and first['committed']
-    assert first['receipt']['compiler'].startswith('fp-kit/2a22c263')
+    assert first['receipt']['compiler'].startswith('fp-kit/c568776')
     a=Store(tmp_path).get('infographic')
     # Font identity is committed with the revision; the tool result stays small because
     # every tool result is replayed on each later model call.
@@ -50,6 +52,7 @@ def test_the_paired_bar_grammar_reaches_the_real_compiler(tmp_path):
               'blocks': [{'kind': 'chart', 'template': 'bar', 'style': 'paired', 'rows': rows,
                           'fields': {'category': 'Measure', 'columns': ['Oct 29, 2024', 'Sep 15, 2026'],
                                      'unit': 'Unit', 'delta': 'Change', 'group': 'Group'}}]}
+    Store(tmp_path).set_appearance('dark', 'dark mode', 'message')
     tools = {t.__name__: t for t in fp_tools(tmp_path)}
     guide = tools['fp_guide']('draw', 'bar', True)
     # The catalog tells the model this reading exists; it used to have to guess or grep.
@@ -87,6 +90,7 @@ def test_a_render_describes_itself_so_nobody_reads_outlined_glyphs(tmp_path):
                           'rows': [{'id': 'v', 'M': 'Validators', 'A': 146, 'B': 84},
                                    {'id': 's', 'M': 'Total staked', 'A': 839800000, 'B': 753200000}],
                           'fields': {'category': 'M', 'columns': ['A', 'B']}}]}
+    Store(tmp_path).set_appearance('dark', 'dark mode', 'message')
     tools = {t.__name__: t for t in fp_tools(tmp_path)}
     guide = tools['fp_guide']('draw', 'bar', True)
     out = tools['fp_render'](json.dumps(source, ensure_ascii=False), 0, 0,
@@ -107,3 +111,36 @@ def test_a_render_describes_itself_so_nobody_reads_outlined_glyphs(tmp_path):
     assert out['artifacts']['png'] == 'fp/infographic.png'
     # And it stays with the revision, so a later turn can ask without re-rendering.
     assert Store(tmp_path).get('infographic')['receipt']['layout'] == layout
+
+
+def test_the_shipped_bundle_renders_the_declared_light_pack(tmp_path):
+    """Light or dark is the user's call, and both packs must be IN the installed bundle.
+
+    The gate that asks the question is worthless if the answer cannot be drawn: a bundle
+    missing `fp-v1-light.json` would refuse dark (the user said light) and fail light (no
+    such pack), which is a product that cannot draw at all.
+    """
+    assert os.environ.get('FP_STUDIO_TESTING') != '1'
+    source = {'title': 'Paper', 'source': 'test', 'colorMode': 'sequential',
+              'blocks': [{'kind': 'chart', 'template': 'bar',
+                          'rows': [{'id': 'a', 'K': 'A', 'V': 3}, {'id': 'b', 'K': 'B', 'V': 5}]}]}
+    tools = {t.__name__: t for t in fp_tools(tmp_path)}
+    rules = json.dumps({n: design.digest(n) for n in design.required(source)})
+    # No declaration: the real tool refuses and names the one call that fixes it.
+    with pytest.raises(design.DesignRulesError, match='ask_user'):
+        tools['fp_render'](json.dumps(source), 0, 0, rules)
+    Store(tmp_path).set_appearance('light', '라이트 모드로', 'message')
+    with pytest.raises(design.DesignRulesError, match='fp-v1-light'):
+        tools['fp_render'](json.dumps(source), 0, 0, rules)
+    light = dict(source, theme='fp-v1-light')
+    out = tools['fp_render'](json.dumps(light), 0, 0,
+                             json.dumps({n: design.digest(n) for n in design.required(light)}))
+    assert out['ok'] and out['committed'] and not out['audit']['findings']
+    assert out['layout']['frame']['appearance'] == 'light'
+    # The committed receipt pins both files: the light pack IS the dark pack plus a delta,
+    # so a base edited afterwards must move the fingerprint too.
+    theme = Store(tmp_path).get('infographic')['receipt']['theme']
+    assert {'fp-v1.json', 'fp-v1-light.json'} <= {asset['name'] for asset in theme['assets']}
+    assert theme['inherits'] == ['fp-v1'] and theme['id'] == 'fp-v1-light'
+    png = (tmp_path / 'fp/infographic.png').read_bytes()
+    assert png.startswith(b'\x89PNG') and len(png) > 50_000

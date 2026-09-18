@@ -15,6 +15,7 @@ import pytest
 
 from coworker.fp import sdk
 from coworker.fp.sdk import SdkError
+from coworker.fp.store import Store
 from coworker.tools.fp import fp_tools
 
 
@@ -106,6 +107,7 @@ def test_authoring_one_grammar_costs_far_less_than_the_whole_kit(guide):
 
 
 def test_render_refuses_a_grammar_the_kit_does_not_serve(tmp_path):
+    Store(tmp_path).set_appearance('dark', 'dark mode', 'message')
     tools = {f.__name__: f for f in fp_tools(tmp_path)}
     from coworker.fp import design
 

@@ -78,6 +78,16 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
         out['source_ids']=[s.get('id') for s in review.get('sources') or []]
         return out
 
+    def _appearance() -> dict:
+        """What the conversation decided about light or dark, and the pack that follows."""
+        record=store.appearance()
+        if not record:
+            return {'declared':False,
+                    'ask':"ask_user(question='Light or dark?', options=['Dark','Light','Both'])"}
+        mode=record['mode']
+        return {'declared':mode,'theme':'fp-v1 or fp-v1-light' if mode=='both'
+                else design.APPEARANCE_PACKS[mode]}
+
     def fp_inspect(name: str='infographic', include_source: bool=False) -> dict:
         """Read structure, brief, evidence and review before editing.
 
@@ -95,6 +105,7 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
             legacy=(ws/'.fpstudio'/valid_name(name)/'state.json').exists()
             return {'exists':False,'revision':0,'research':_research_summary(research),
                     'sources':_sources_summary(),'references':refs,'legacy_v02_detected':legacy,
+                    'appearance':_appearance(),
                     'notice':'Import v0.2 history before editing this name.' if legacy
                              else ('Redraw the supplied source: transcribe it into reference and keep its grammar, structure, wiring and copy.'
                                    if refs else 'Compose from the user content; no template selection.')}
@@ -115,8 +126,7 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
              'outline':outline(value),
              'source_sha256':receipt.get('source_sha256'),
              'receipt':{k:receipt.get(k) for k in ('compiler','renderer_fingerprint','audit','design_rules','status')},
-             'research':_research_summary(research),'sources':_sources_summary(),
-             'references':refs,'reference':receipt.get('reference'),
+             'references':refs,'reference':receipt.get('reference'),'appearance':_appearance(),
              # A committed revision can be unfaithful - the gate widens, or the revision
              # predates it - and then the only thing that says so is a human holding the
              # source next to the frame. One user did; the document claimed 100 where the
@@ -369,6 +379,9 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
         An edit is not a cheaper kind of write: it runs the same grammar check, the same
         mandatory design gate, the same revision CAS and the same compiler."""
         valid_name(name)
+        # Light or dark first: the pack decides every colour in the frame, so a render
+        # before the user has chosen one is a guess dressed as a result.
+        design.appearance_gate(store.appearance(),value)
         # A grammar the kit does not serve is a typo or an invention; catch it before
         # the compiler does, and before a "rendered" claim.
         unknown=sdk.validate_templates(value)
@@ -405,6 +418,14 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
             raise ValueError('Renderer fingerprint missing')
         old=current['receipt'].get('renderer_fingerprint') if current else None
         if old and old!=fingerprint and not runtime_upgrade:
+            was=(current['receipt'].get('theme') or {}).get('id') if current else None
+            now=(result.get('theme') or {}).get('id')
+            if was and now and was!=now:
+                raise ValueError(
+                    f"This document was drawn with theme='{was}'; rendering it as '{now}' "
+                    'would replace it. A light version and a dark version are two '
+                    f"artifacts: render the other one under its own name (name='...-{('light' if 'light' in now else 'dark')}')."
+                )
             raise ValueError('Compiler/theme/fonts changed. Discuss the upgrade, then explicitly render with runtime_upgrade=true. Prior artifacts are preserved.')
         receipt={k:result.get(k) for k in ('compiler','renderer_fingerprint','input_hash','frame','audit','fonts','theme','layout')}
         # Which design rules (and which exact revision of them) governed this render.

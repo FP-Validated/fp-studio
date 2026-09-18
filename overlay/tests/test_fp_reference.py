@@ -46,6 +46,9 @@ def tools(tmp_path, monkeypatch):
     monkeypatch.setattr(RenderController, "run",
                         lambda self, value, workspace, **kw: rendered(value.get("title", "x")))
     funcs = {fn.__name__: fn for fn in fp_tools(tmp_path)}
+    # Every render needs the user's light/dark declaration first; these tests stand for a
+    # conversation where they said dark.
+    Store(tmp_path).set_appearance('dark', 'dark mode', 'message')
     render = funcs["fp_render"]
 
     def render_with_rules(input_json, rev, research_rev, design_rules="", **kw):
