@@ -33,6 +33,22 @@ Original OpenWorker conversation
 | SQLite Store | Immutable revisions, sources, publication receipts and authoritative artifact bytes |
 | Original GUI | User conversation and artifact display; no new editing surface |
 
+## A category can fill a node, and can be named
+
+Two readings of one grammar, both taken from delivered frames. The default washes a node:
+the canvas shows through the category at 12% with an accent stroke. `style: 'tinted'` fills
+it instead - a pastel of the authorised hue - and then the label's background is the node,
+not the canvas, so its colour is chosen against the fill by `inkOn` rather than inherited
+from the appearance. That is why a tinted node needs no light-pack override: a pastel wants
+ink whether the frame around it is paper or ink.
+
+`legend: true` names the coloured groups in a centred row of chips under the graphic, in
+first-appearance order. It is off by default: an unexplained colour is a defect, but a
+legend that appears uninvited takes the eye off the graphic, so the author asks.
+
+Only the twelve grammars whose renderer draws a node box advertise `tinted` in the catalog,
+and a test renders each one to prove the style is honoured rather than merely documented.
+
 ## Light or dark is the user's call
 
 Every colour in a frame comes from one theme pack, so the pack is not a preference to be

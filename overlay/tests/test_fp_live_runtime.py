@@ -19,7 +19,7 @@ def test_real_fp_compiler_to_svg_png_and_revision(tmp_path):
     rules=json.dumps({n:design.digest(n) for n in design.required(source)})
     first=tools['fp_render'](json.dumps(source,ensure_ascii=False),0,0,rules)
     assert first['ok'] and first['committed']
-    assert first['receipt']['compiler'].startswith('fp-kit/c568776')
+    assert first['receipt']['compiler'].startswith('fp-kit/9e7653d')
     a=Store(tmp_path).get('infographic')
     # Font identity is committed with the revision; the tool result stays small because
     # every tool result is replayed on each later model call.
@@ -142,5 +142,37 @@ def test_the_shipped_bundle_renders_the_declared_light_pack(tmp_path):
     theme = Store(tmp_path).get('infographic')['receipt']['theme']
     assert {'fp-v1.json', 'fp-v1-light.json'} <= {asset['name'] for asset in theme['assets']}
     assert theme['inherits'] == ['fp-v1'] and theme['id'] == 'fp-v1-light'
+    png = (tmp_path / 'fp/infographic.png').read_bytes()
+    assert png.startswith(b'\x89PNG') and len(png) > 50_000
+
+
+def test_the_shipped_bundle_serves_tinted_nodes_and_named_categories(tmp_path):
+    """The two primitives the delivered frames use, through the installed compiler.
+
+    A category that fills its box (rather than washing it) and a row of chips naming those
+    categories are what a delivered frame does; a bundle whose catalog advertises `tinted`
+    but whose renderer ignores it would be a documented feature that does not exist.
+    """
+    assert os.environ.get('FP_STUDIO_TESTING') != '1'
+    diagram = {'nodes': [{'id': 'a', 'label': 'User action', 'group': 'Actor'},
+                         {'id': 'b', 'label': 'Atomic execution', 'group': 'Execution'},
+                         {'id': 'c', 'label': 'validateUserOp()', 'group': 'Validation'}],
+               'edges': [{'from': 'a', 'to': 'b'}, {'from': 'b', 'to': 'c'}]}
+    source = {'title': 'Account and transaction abstraction', 'source': 'Four Pillars',
+              'colorMode': 'categorical',
+              'blocks': [{'kind': 'chart', 'template': 'flowchart', 'style': 'tinted',
+                          'legend': True, 'diagram': diagram}]}
+    Store(tmp_path).set_appearance('light', '라이트 모드로', 'message')
+    tools = {t.__name__: t for t in fp_tools(tmp_path)}
+    # The catalog is how a model learns the reading exists.
+    guide = tools['fp_guide']('draw', 'flowchart', True)
+    assert any(s['id'] == 'tinted' for s in guide['grammars'][0]['styles'])
+    document = dict(source, theme='fp-v1-light')
+    out = tools['fp_render'](json.dumps(document, ensure_ascii=False), 0, 0,
+                             json.dumps(guide['acknowledge']))
+    assert out['ok'] and out['committed'] and not out['audit']['findings']
+    # Three declared categories, three authorised hues, named under the graphic.
+    swatches = {s['label'] for s in out['layout']['swatches']}
+    assert {'Actor', 'Execution', 'Validation'} <= swatches, out['layout']['swatches']
     png = (tmp_path / 'fp/infographic.png').read_bytes()
     assert png.startswith(b'\x89PNG') and len(png) > 50_000

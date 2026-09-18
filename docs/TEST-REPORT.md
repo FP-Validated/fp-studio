@@ -235,6 +235,33 @@ plus corner blobs.
 | Fixed per-call cost | 15,747 chars against the 15,800 cap (one policy line, no new tool) |
 | Accent contrast on paper | blue 3.2:1, green 3.3:1, coral 3.2:1, amber 3.2:1 |
 
+## 2026-09-18 — 0.3.8: the two things a delivered frame does that the pack could not
+
+`Patrick works` reads a node category by FILLING its box - `Coinbase Dominance` 35:4142
+stacks four pastel cards with dark labels on the dark canvas, and `3_03 Account And
+Transaction Abstraction` 32:1364 does the same on paper, then names its three categories in
+a centred row of chips. The pack could do neither.
+
+| Gap | What existed | Fix and its test |
+|---|---|---|
+| A category washed a node instead of filling it | `nodeBox` drew the accent at 12% with a tinted label, which is one reading, not the only one | `style: 'tinted'`: the accent fills the box at `surface.node.tinted.tint` (0.78 toward white) and the label is ink chosen against THAT fill by `inkOn`, so one rule serves both appearances. Tests: three filled boxes carry solid fills, every label colour is a pack neutral, and the same document on paper keeps the same ink |
+| A coloured group had no name | Diagrams emitted no legend at all, so a category-coloured frame showed colours the reader had to guess | `legend: true` draws centred chips under the graphic in first-appearance order. Off by default, because a legend that appears uninvited takes the eye off the graphic. Tests: chips appear only when asked, and one category is not a legend |
+| A composed diagram lost its categories | `collectAccentKeys` had no `chart` case, so node `group`/`kind` never reached the palette and every box came out slate. The top-level path had always collected them | The block path collects them too. Test asserts `ir.visual.accents` is `['Actor', 'Execution', 'Validation']` |
+| The catalog could not say either existed | Diagram grammars declared no `styles` | The twelve grammars whose renderer draws a node box declare `tinted`. Test asserts the list AND that each one really honours it - a tinted render differs from a washed one |
+
+Orthogonal routing, arrowheads and feedback edges were already there: `layeredGraph` sends an
+edge that spans more than one rank, or runs backwards, into a side channel and draws it with
+`cornerRadius` from the pack. Verified by rendering the same flow in both packs - the
+`Settlement -> User action` edge takes the channel and arrives with an arrowhead. Nothing was
+added for it.
+
+| Check | Result |
+|---|---|
+| fp-kit | 57 passed (53 before) |
+| Assembled tree, every FP suite plus upstream | 2,182 passed, 1 skipped |
+| Live runtime, both primitives | catalog advertises `tinted` for `flowchart`; the shipped compiler drew three filled categories and named them |
+| Both appearances | rendered the same tinted flow with `fp-v1` and `fp-v1-light`; pastel fills and ink labels in both |
+
 ## Reassembly equivalence
 
 `python scripts/assemble.py --dest /tmp/fp-verify-8 --openworker-source ~/Developer/fp-studio-v0.3
