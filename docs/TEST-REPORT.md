@@ -416,6 +416,7 @@ Assembled into `/Users/steve/Developer/fp-studio-release-0.3.10` from the pinned
 | The shipped read guard | `read_file('fp/grt-overall-structure.png')` on the 768,395-byte artifact returns `not text: … holds binary data (768395 bytes)` — 165 characters instead of 918,976 |
 | The light pack the user never got | with `both` declared, the build tree on the installed bundle's runtime rendered `theme='fp-v1-light'`, `appearance='light'`, 98,640-byte PNG / 99,210-byte SVG |
 | Mounted bundle contents | 9 rule files, 9 Pretendard weights, Node v22.16.0, 3,727 hashed entries in `BUILD-MANIFEST.json` |
+| Published asset re-downloaded | `gh release download v0.3.10` returned 175,092,614 bytes, sha256 identical to the built DMG; quarantined copy `accepted — source=Notarized Developer ID`, ticket validates |
 
 Still not run: a live-provider conversation in this build, and installation on a separate clean Mac.
 
