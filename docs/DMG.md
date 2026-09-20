@@ -1,17 +1,19 @@
 # macOS build and internal release
 
-This document describes the build path. It produced `FP Studio_0.3.8_aarch64.dmg` on **2026-09-18**: Developer ID
-signature (`Hyunmin kim (KH55W9G87F)`, timestamp 12:15:07), **notarized (`Accepted`) and stapled**, sha256
-`17e6268bf238bd55c1081b670aa0632970dde0bff5c6fe15aefc676c1e7dc7bc`, published at
-https://github.com/FP-Validated/fp-studio/releases/tag/v0.3.8 . The 0.3.0 through 0.3.5 builds were notarized the
+This document describes the build path. It produced `FP Studio_0.3.9_aarch64.dmg` on **2026-09-20**: Developer ID
+signature (`Hyunmin kim (KH55W9G87F)`), **notarized (`Accepted`, submission
+`50109f68-e62c-473f-a7f8-f2a13e0713f8`) and stapled**, sha256
+`86b1d342aa1bdff5341ab16b57fdb7ef70e5f7da1b4735447e16c78c90eda1b9`, published at
+https://github.com/FP-Validated/fp-studio/releases/tag/v0.3.9 . The 0.3.0 through 0.3.5 builds were notarized the
 same way and every DMG was withdrawn, because each shipped a frame that was wrong in what it showed - a broken
 attached-image redraw, clipped table cells, a collapsed table head, a bar grammar that could not hold a second
 series, a reproduce gate that could not see a value stored under a column the author named, and a reproduce gate a
-two-image turn could only get past by waiving it and composing from the web. 0.3.6 and 0.3.7 drew correctly and are
-withdrawn as superseded, not defective: 0.3.6 could only draw dark and never asked, and 0.3.7 could not fill a
-category node or name a category. A copy downloaded anonymously, carrying the browser's quarantine attribute,
-reports `accepted - source=Notarized Developer ID` and validates its stapled ticket. Preserve the original
-OpenWorker GUI and run these gates on the actual target Mac; installation on a clean, separate Mac is untested.
+two-image turn could only get past by waiving it and composing from the web. 0.3.6 through 0.3.8 drew correctly and
+are withdrawn as superseded, not defective: 0.3.6 could only draw dark and never asked, 0.3.7 could not fill a
+category node or name a category, and 0.3.8 re-sent four payloads the conversation had already paid for. A copy
+carrying the browser's quarantine attribute reports `accepted - source=Notarized Developer ID` and validates its
+stapled ticket. Preserve the original OpenWorker GUI and run these gates on the actual target Mac; installation on
+a clean, separate Mac is untested.
 
 ## 1. Prepare and assemble
 

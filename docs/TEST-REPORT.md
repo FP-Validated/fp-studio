@@ -262,7 +262,7 @@ added for it.
 | Live runtime, both primitives | catalog advertises `tinted` for `flowchart`; the shipped compiler drew three filled categories and named them |
 | Both appearances | rendered the same tinted flow with `fp-v1` and `fp-v1-light`; pastel fills and ink labels in both |
 
-## 2026-09-18 — 0.3.9: four payloads the conversation paid for twice
+## 2026-09-20 — 0.3.9: four payloads the conversation paid for twice
 
 Every tool result is replayed on every later model call of the turn, so a payload emitted
 at call *k* of *N* is charged *N−k* more times. Four of them were being re-sent with no
@@ -318,6 +318,31 @@ Regenerating the manifest showed the committed 0.3.8 `SOURCE-MANIFEST.json` was 
 regenerated here, and `.serena/` (a local index directory, like `.zvec-grep` and
 `.codegraph`) is excluded.
 The manifest is only true if `validate_local.sh` is the last thing run before a commit.
+
+## 2026-09-20 — 0.3.9: signed, notarized release build
+
+Assembled fresh with `scripts/assemble.py` into `/Users/steve/Developer/fp-studio-release-0.3.9` from the pinned
+commits, then `packaging/build_fp_studio_dmg.sh --release` with the Developer ID identity and an App Store Connect
+notary key.
+
+| Check | Result |
+|---|---|
+| Upstream GUI comparison | 44 GUI files equal upstream + 221 declared edits, 5 declared additions, no undeclared change |
+| Design rules staged into the bundle | `fp-design-system@5d9787297db0`, `fp-design-table@5c8fb12a2bfa`, `fp-design-chart@a8a7dba5510c`, `fp-design-flowchart@dbc5e15f5c38`, `fp-design-reproduce@d61169d6cc1b` |
+| Python gate in the assembled tree (real resvg, real permission integration, supplied fonts) | 185 passed |
+| fp-kit `npm test` | 57 passed |
+| Original GUI unit tests + production build | 189 tests / 27 files passed, build succeeded |
+| Fork shell smoke E2E (`e2e/fp-smoke.spec.ts`) | 2 passed |
+| Container signature | `Developer ID Application: Hyunmin kim (KH55W9G87F)`, team `KH55W9G87F`, timestamp 2026-09-20 10:21:30 |
+| Notarization | submission `50109f68-e62c-473f-a7f8-f2a13e0713f8`, `status: Accepted`, stapled, `stapler validate` worked |
+| DMG | `FP Studio_0.3.9_aarch64.dmg`, 178,107,724 bytes, sha256 `86b1d342aa1bdff5341ab16b57fdb7ef70e5f7da1b4735447e16c78c90eda1b9` |
+| Quarantined copy | quarantine attribute set on the DMG, `spctl -a -t open` → `accepted — source=Notarized Developer ID`; mounted, copied to `/Applications`, `spctl -a` → `accepted` |
+| Installed app launched | sidecar answered `/v1/health` with `{"status":"ok"}`; the stock shell rendered with its sidebar, session list, transcript, composer and right rail (screenshot reviewed) |
+| Shipped bundle renders | the installed bundle's own runtime (`node v22.16.0`, staged fp-kit) rendered a 6-row table to a 580,967-byte PNG and 229,613-byte SVG through `fp-kit/9e7653d9027b` |
+| Mounted bundle contents | 9 rule files (5 cards + 4 appendices), 9 Pretendard weights with `OFL.txt`, Node v22.16.0, 3,727 hashed entries in `BUILD-MANIFEST.json` |
+
+Still not run: installation on a separate clean Mac, and a full live-provider research → draft → revision →
+publish conversation in this build.
 
 ## Reassembly equivalence
 
