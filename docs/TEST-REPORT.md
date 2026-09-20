@@ -262,6 +262,63 @@ added for it.
 | Live runtime, both primitives | catalog advertises `tinted` for `flowchart`; the shipped compiler drew three filled categories and named them |
 | Both appearances | rendered the same tinted flow with `fp-v1` and `fp-v1-light`; pastel fills and ink labels in both |
 
+## 2026-09-18 — 0.3.9: four payloads the conversation paid for twice
+
+Every tool result is replayed on every later model call of the turn, so a payload emitted
+at call *k* of *N* is charged *N−k* more times. Four of them were being re-sent with no
+mechanism to stop it. Measured in an assembled tree (this overlay over the pinned upstream
+and kit, real compiler, installed app fonts), base = `HEAD`, new = this change.
+
+| Payload | Where it came from | Base | Now |
+|---|---|---:|---:|
+| `fp_review`'s final checklist, second call | `fp.py` had no dedupe on the largest payload the capability produces (107 rules for a redraw) | 21,414 | 937 |
+| `review` on a redraw's write result | the review demanded an editorial brief and captured claims from a document the instructions tell not to research, and counted the transcription under `/reference/**` as unbound values | 412, `ok: false` | 156, `ok: true` |
+| `review` on a factual write, 20 unbound values | one line per pointer, plus the invariant warnings, on every render, edit, restore and inspect | 1,282 (24 lines) | 408 (5 lines) |
+| `checked` / `not_checked` on every write | the gate's constant description of what it checks | 532 per write | 532 once |
+
+Replayed over one 24-call turn (8 writes, 2 reviews): a redraw cost 277,040 chars and now
+costs 138,267; a factual document cost 303,096 and now costs 124,848 — ~35k and ~45k
+tokens returned to the window.
+
+Two correctness defects fell out of the same work. The dedupe ledger lived in the
+workspace database, which outlives the conversation: a SECOND chat about the same project
+was told "this conversation already carries it in full — scroll back" about a contract it
+had never been sent, and was handed the acknowledgement digests that let it render
+anyway. The ledger is now the tool closure, whose lifetime is the session's (the engine,
+and with it the tool set, is built once per session and cached). And a redraw could not be
+published at all without inventing a brief, an audience and a source for numbers the user
+had supplied; it now publishes against the source it transcribes, with the redrawn image
+named in the export receipt.
+
+`layout` — the readback that replaces reading outlined glyphs — was the one summary with
+no cap, copied whole into the result and the receipt. It is served whole while it fits
+(8,000 chars; a 14-row paired bar is 327), and an oversized part is replaced by its size
+and `fp_source(pointer, doc='layout')`, which now reads the committed readback.
+
+| Check | Result |
+|---|---|
+| Assembled tree, every FP suite plus subscription auth | 233 passed (228 before; 5 new regression tests) |
+| `pytest -q tests` (this repo) | 8 passed |
+| Live runtime, real compiler and fonts | 27 passed; a redraw published end to end, 107 rules inspected, `## Redrawn source` in the receipt |
+| Fixed per-call cost | 15,772 of 15,800 chars (schemas 10,733 + instructions 5,039); `doc='layout'` and `fp_review(again=)` were paid for by deleting three docstring sentences the prompt already carries |
+
+No DMG was built for this change: source and the assembled-tree suites only. GUI, native
+Mac integration, a signed build and a live model call remain unexecuted here.
+
+An independent review of the change set found no bypass: the pointer response carries no
+checklist ids, so `fp_publish` still refuses (`107 design rules were not inspected`) until
+a body was served in this conversation, and a rebuilt tool set starts with an empty
+ledger. It did name one drift: a readback pointer outlives the render that produced it,
+because the next write replaces `receipt.layout`. `fp_source(doc='layout')` now stamps the
+revision that answered, so a pointer carried over from an earlier result is read as the
+current readback rather than mistaken for the one it was summarized from.
+
+Regenerating the manifest showed the committed 0.3.8 `SOURCE-MANIFEST.json` was stale for
+24 of its 117 entries — it was written before the last edits of that commit. It is
+regenerated here, and `.serena/` (a local index directory, like `.zvec-grep` and
+`.codegraph`) is excluded.
+The manifest is only true if `validate_local.sh` is the last thing run before a commit.
+
 ## Reassembly equivalence
 
 `python scripts/assemble.py --dest /tmp/fp-verify-8 --openworker-source ~/Developer/fp-studio-v0.3
@@ -312,8 +369,10 @@ deliberately above the deduplicated floor of 12,762: reproduce mode and the fina
 gate, for 15,009 chars per call against a 15,100 ceiling.
 
 The final inspection checklist (the per-grammar design rules served back with an id each) is
-~17,000 chars for a table document. It is injected once, at `fp_review` before publication, and
-never rides a render or edit result — `test_fp_final_gate.py` pins that.
+~12,500 chars for a table document and ~21,400 for a redraw. It never rides a render or edit
+result — `test_fp_final_gate.py` pins that — and since 0.3.9 it is served once per
+conversation: a second `fp_review` returns the skill digests, the item count and a pointer,
+and `again=True` forces the text back after a compaction.
 
 ## Test doubles, explicitly
 

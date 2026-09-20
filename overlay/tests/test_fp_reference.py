@@ -399,6 +399,32 @@ def test_the_redraw_route_publishes_the_transcription_it_demands(tools, tmp_path
     assert "referenceWaiver" in contract["gate"]
 
 
+def test_a_redraw_is_reviewed_against_its_source_not_against_research(tools, tmp_path):
+    """A redraw needs no research, so the review may not demand any.
+
+    The gate asked a redraw for an editorial brief and captured claims, and then counted
+    the transcription itself - reporting every value the document had faithfully copied
+    twice, once under /blocks and once under /reference. A publication was unreachable
+    without inventing a goal, an audience and a source for numbers the user supplied.
+    """
+    out = tools["fp_render"](dumps(redraw(captured(tmp_path)["id"])), 0, 0)
+    assert out["review"]["ok"] is True and out["review"]["failures"] == []
+    assert "/reference/" not in json.dumps(out["review"])
+
+    review = tools["fp_review"]()
+    assert review["ok"] and review["failures"] == []
+    assert any("transcription" in w for w in review["warnings"])
+
+    # And the transcription is still what it is judged by: break fidelity in the store
+    # and the same review says so.
+    store = Store(tmp_path)
+    current = store.get("infographic")
+    drifted = copy.deepcopy(current["input"])
+    drifted["blocks"][0]["series"][0]["values"][1] = 39.0
+    store.commit("infographic", 1, drifted, current["svg"], current["png"], current["receipt"], 0)
+    assert any("not in the transcription" in f for f in tools["fp_review"]()["failures"])
+
+
 # -- the wiring is the content --------------------------------------------------------
 
 

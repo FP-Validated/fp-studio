@@ -187,8 +187,9 @@ def inspected(tools, name='infographic') -> str:
 
     The gate itself — what happens when an id is missing, unanswered or signed against
     older rules — is tested in test_fp_final_gate.py; here it is just the price of
-    publishing."""
-    checklist=tools['fp_review'](name)['final_checklist']
+    publishing. `again` because a helper cannot see what the conversation already holds:
+    a checklist served once comes back as a pointer."""
+    checklist=tools['fp_review'](name, again=True)['final_checklist']
     return dumps({'skills':checklist['skills'],
                   'checks':{item['id']:{'verdict':'pass'} for item in checklist['items']}})
 

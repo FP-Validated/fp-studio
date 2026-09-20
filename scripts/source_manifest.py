@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SKIP_DIRS = {'.git', '.zvec-grep', '.codegraph', '__pycache__', '.pytest_cache',
+SKIP_DIRS = {'.git', '.zvec-grep', '.codegraph', '.serena', '__pycache__', '.pytest_cache',
              'node_modules', '.venv', 'build', 'dist'}
 SKIP_NAMES = {'.DS_Store', 'SOURCE-MANIFEST.json'}
 

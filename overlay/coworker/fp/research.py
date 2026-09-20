@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 import re
 from .common import dumps, pointer_get
+from .reference import fidelity_violations
 from .store import Store
 
 
@@ -101,15 +102,22 @@ def review_document(store: Store, name: str) -> dict:
     if not doc:
         return {'ok':False,'failures':['No rendered revision'],'warnings':[]}
     val=research['value']; brief=val.get('brief',{})
+    # A REDRAW is judged against the source it transcribes. Its evidence is the captured
+    # image or structure, which the render gate already resolved and the fidelity check
+    # compares against - so demanding an editorial brief and captured claims here asks a
+    # document that was told to do no research to invent some, and then reports every
+    # value it faithfully copied as unbound.
+    reproduce=isinstance(doc['input'].get('reference'),dict)
     if not doc['receipt'].get('audit',{}).get('ok'):
         failures.append('Compiler audit has not passed')
-    for key in ('goal','audience','main_message'):
-        if not brief.get(key):
-            failures.append(f'Editorial brief missing {key}')
+    if not reproduce:
+        for key in ('goal','audience','main_message'):
+            if not brief.get(key):
+                failures.append(f'Editorial brief missing {key}')
     if val.get('open_questions'):
         failures.append('Unresolved research questions remain')
     illustrative=brief.get('mode')=='illustrative'
-    if not illustrative and not val.get('claims'):
+    if not illustrative and not reproduce and not val.get('claims'):
         failures.append('Factual output needs captured-source-backed claims')
     for claim in val.get('claims',[]):
         cid=claim['id']
@@ -136,10 +144,13 @@ def review_document(store: Store, name: str) -> dict:
                     bound.add(p)
             except (KeyError,IndexError,TypeError,ValueError):
                 failures.append(f'{cid}: missing binding {p}')
-    if not illustrative:
-        for p in sorted(set(data_numeric_paths(doc['input']))-bound):
-            failures.append(f'Unbound numeric value: {p}')
-    else:
+    if reproduce:
+        # The decidable half of a redraw: same grammar, same blocks, same graph, no value
+        # or label the transcription did not read from the source.
+        failures.extend(fidelity_violations(doc['input']))
+        warnings.append('Reproduce mode: checked against the transcription, not against '
+                        'the source itself - hold the rendered PNG next to what the user supplied')
+    elif illustrative:
         # The label has to be VISIBLE, not in one prescribed slot. Forcing it into the
         # footer note is what produced a sentence long enough to run under the brand
         # mark; a subtitle carries it better and the reader sees it sooner.
@@ -147,7 +158,13 @@ def review_document(store: Store, name: str) -> dict:
         if not any(w in label for w in ('illustrative','hypothetical','sample data','예시','가상','데모')):
             failures.append('Illustrative output must say so in the visible title, subtitle or note')
         warnings.append('Illustrative mode: not verified factual data')
-    if not brief.get('as_of'):
+    else:
+        # `reference` is a copy of the source, not a measurement this document makes;
+        # counting it reported every redrawn value twice.
+        drawn={k:v for k,v in doc['input'].items() if k!='reference'}
+        for p in sorted(set(data_numeric_paths(drawn))-bound):
+            failures.append(f'Unbound numeric value: {p}')
+    if not reproduce and not brief.get('as_of'):
         warnings.append('No explicit as-of date; check temporal relevance with the user')
     warnings.append('Mechanical checks do not prove source truth, semantic entailment or visual quality')
     return {'ok':not failures,'revision':doc['revision'],'research_revision':research['revision'],

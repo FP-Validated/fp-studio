@@ -1,4 +1,4 @@
-# FP Studio 0.3.8
+# FP Studio 0.3.9
 
 An additive, pinned OpenWorker fork for conversational infographic research. **Keep the stock GUI.** Users research, discuss and revise in the original conversation while the original artifact viewer displays SVG/PNG. No replacement app, template picker, inspector, Figma or OMP runtime.
 

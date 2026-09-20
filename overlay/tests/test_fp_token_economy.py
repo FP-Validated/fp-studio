@@ -420,3 +420,100 @@ def test_a_contract_already_delivered_comes_back_as_a_pointer(tools):
     # An appendix is read once, on demand, and is never suppressed.
     for _ in range(2):
         assert 'slanted (~48°)' in tools['fp_design_rules']('fp-design-chart', appendix=True)['rules']
+
+
+def test_the_final_checklist_is_served_once_per_conversation(tools, tmp_path):
+    """Twenty thousand characters, carried by every call that follows the second copy.
+
+    fp_review's checklist is the largest payload this capability produces - 107 rules for
+    a redraw. Nothing stopped it being served twice: a refused publish, a second opinion
+    or a helper that just calls fp_review again paid for the whole thing a second time.
+    """
+    tools['fp_render'](dumps(table_document(4)), 0, 0)
+    first = tools['fp_review']()['final_checklist']
+    assert len(first['items']) > 30 and json.dumps(first)
+
+    repeat = tools['fp_review']()['final_checklist']
+    assert repeat.get('served_earlier') is True and 'items' not in repeat
+    assert chars(repeat) < chars(first) / 8
+    # The digests survive it: fp_publish needs them beside the verdicts, and they are
+    # two hashes, not the rules.
+    assert repeat['skills'] == first['skills'] and repeat['item_count'] == len(first['items'])
+    # The mechanical review itself is not suppressed - only the rule text is.
+    assert tools['fp_review']()['failures'] == tools['fp_review'](checklist=False)['failures']
+    # A compaction can drop it, so the text stays reachable on request.
+    assert tools['fp_review'](again=True)['final_checklist']['items'] == first['items']
+
+
+def test_a_new_conversation_is_not_told_to_scroll_back(tmp_path, monkeypatch):
+    """The ledger's scope is the transcript, not the project directory.
+
+    The pointer says "this conversation already carries it in full". When the record
+    lived in the workspace database it outlived the conversation, so the SECOND chat
+    about the same project was told to scroll back to a contract it had never been sent -
+    and handed the acknowledgement digests that let it render anyway.
+    """
+    monkeypatch.setattr(RenderController, 'run',
+                        lambda self, value, workspace, **kw: rendered('x'))
+    first_chat = {fn.__name__: fn for fn in fp_tools(tmp_path)}
+    assert 'style' in first_chat['fp_design_rules']('fp-design-chart')['rules']
+    assert first_chat['fp_design_rules']('fp-design-chart').get('served_earlier') is True
+
+    second_chat = {fn.__name__: fn for fn in fp_tools(tmp_path)}
+    served = second_chat['fp_design_rules']('fp-design-chart')
+    assert served.get('served_earlier') is None
+    assert 'style' in served['rules']
+
+
+def test_an_oversized_readback_is_replaced_by_the_pointer_that_reads_it(tmp_path, monkeypatch):
+    """`layout` is the cheap way to check a render - but it grows with the document.
+
+    Every other summary on a write result has a cap; this one was copied out of the
+    renderer whole, into the result AND the committed receipt, and then replayed on
+    every later call of the turn. It stays whole while it fits.
+    """
+    big = {'frame': {'appearance': 'dark', 'colorMode': 'pair'},
+           'blocks': [{'kind': 'table', 'template': 'table', 'row': f'Network {i}'}
+                      for i in range(400)],
+           'clipped': [], 'warnings': []}
+    monkeypatch.setattr(RenderController, 'run',
+                        lambda self, value, workspace, **kw: {**rendered('x'), 'layout': big})
+    tools = {fn.__name__: fn for fn in fp_tools(tmp_path)}
+    Store(tmp_path).set_appearance('dark', 'dark mode', 'message')
+    out = tools['fp_render']('{"title":"A"}', 0, 0, acknowledge('{"title":"A"}'))
+
+    assert chars(out['layout']) < chars(big) / 10
+    # What a reader needs stays verbatim; only the part that did not fit is replaced.
+    assert out['layout']['frame'] == big['frame'] and out['layout']['clipped'] == []
+    assert out['layout']['blocks'] == {'too_large': True, 'chars': chars(big['blocks']),
+                                       'pointer': '/blocks'}
+    # And the whole readback is committed, so the pointer the result names reads it.
+    assert Store(tmp_path).get('infographic')['receipt']['layout'] == big
+    read = tools['fp_source']('/blocks/399', name='infographic', doc='layout')
+    assert read['value'] == big['blocks'][399]
+    # The next write replaces the readback, so the read says which revision answered it.
+    assert read['revision'] == out['revision']
+
+
+def test_a_write_result_carries_the_findings_not_the_standing_advisory(tools, tmp_path):
+    """The review rides every render, edit, restore and inspect of the turn.
+
+    Two of its parts are the same on all of them: the warnings, which say what mechanical
+    checks cannot prove, and one line per unbound pointer - forty of them on a wide table.
+    The findings are what the next edit acts on; the rest belongs at the gate.
+    """
+    document = {'title': 'A', 'content': [{'value': float(i)} for i in range(8)]}
+    review = tools['fp_render'](dumps(document), 0, 0)['review']
+
+    unbound = [f for f in review['failures'] if f.startswith('Unbound numeric value')]
+    assert unbound == ['Unbound numeric value: /content/0/value, /content/1/value, '
+                       '/content/2/value (+5 more)']
+    assert 'Mechanical checks do not prove' not in json.dumps(review)
+    assert review['warnings_count'] == 2
+    # What it did NOT lose: the state of the document and every distinct problem with it.
+    assert review['ok'] is False and review['revision'] == 1
+    assert 'Editorial brief missing goal' in review['failures']
+
+    full = tools['fp_review'](checklist=False)
+    assert len([f for f in full['failures'] if f.startswith('Unbound numeric value')]) == 8
+    assert any('Mechanical checks do not prove' in w for w in full['warnings'])

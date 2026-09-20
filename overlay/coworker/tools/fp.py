@@ -17,6 +17,10 @@ WRITE_TOOLS=frozenset({'fp_render','fp_edit','fp_restore','fp_research','fp_rese
 # Tool results are replayed on every later model call, so a result carries what the next
 # decision needs and a pointer to the rest - never an echo of the stored document.
 SUMMARY_LIMITS={'claims':60,'sources':10,'findings':40,'statement':120,'brief':600,'note':200}
+# The renderer's readback is the only cheap way to check a render, so it is generous -
+# but it grows with the document, and an unbounded result is replayed on every later call.
+LAYOUT_BUDGET=8000
+LAYOUT_PART=1500
 
 
 def write_targets(name: str) -> list[str]:
@@ -28,6 +32,12 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
     ws=Path(workspace).expanduser().resolve()
     store=Store(ws)
     controller=RenderController()
+    # What THIS conversation has already been handed in full. The tool set is built once
+    # per session and cached with it, so the closure's lifetime is the transcript's: a key
+    # recorded here is provably still scrollable. The ledger used to live in the
+    # workspace database, which outlives the conversation - a second chat on the same
+    # project was told to "scroll back" to text it had never been sent.
+    delivered: set[str]=set()
 
     def _clip(value,limit: int) -> str:
         text=value if isinstance(value,str) else json.dumps(value,ensure_ascii=False)
@@ -78,6 +88,70 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
         out['source_ids']=[s.get('id') for s in review.get('sources') or []]
         return out
 
+    def _review_brief(review: dict) -> dict:
+        """What a WRITE result carries: what is wrong, once - not the standing advisory.
+
+        Every write's review is replayed on every later call, so the invariant warnings
+        and the one-line-per-pointer families (forty of them on a wide table) are paid
+        for all turn. The findings stay, collapsed by family; fp_review serves the full
+        list and the warnings when the document is being judged.
+        """
+        groups: dict[str,list[str]]={}
+        order: list[str]=[]
+        for item in review.get('failures') or []:
+            head,_,tail=item.partition(': ')
+            if head not in groups:
+                groups[head]=[]
+                order.append(head)
+            groups[head].append(tail)
+        lines: list[str]=[]
+        for head in order:
+            rest=groups[head]
+            if len(rest)<3:
+                lines.extend(f'{head}: {r}' if r else head for r in rest)
+            else:
+                lines.append(f'{head}: '+', '.join(rest[:3])+f' (+{len(rest)-3} more)')
+        cap=SUMMARY_LIMITS['findings']
+        out={k:review.get(k) for k in ('ok','revision','research_revision')}
+        out['failures']=lines[:cap]
+        if len(lines)>cap:
+            out['failures_omitted']=len(lines)-cap
+        out['warnings_count']=len(review.get('warnings') or [])
+        out['read']='fp_review(name) lists every finding and warning in full.'
+        return out
+
+    def _gate(rules: dict) -> dict:
+        """The gate's verdict. WHAT it checks is a constant, so say it once.
+
+        `design_rules` names what governed this particular render and always rides along.
+        The two lists below are the same sentences on every write; after the first one
+        the transcript carries them, and repeating them is paid for on every later call.
+        """
+        out={'design_rules':rules['design_rules']}
+        key='gate:'+'|'.join(rules['checked'])
+        if key not in delivered:
+            delivered.add(key)
+            out['checked'],out['not_checked']=rules['checked'],rules['not_checked']
+        return out
+
+    def _layout(layout: Any,name: str) -> Any:
+        """The renderer's readback, within a budget.
+
+        This is how a render is checked without reading the SVG, so it is served in full
+        whenever it fits. A wide document's readback can outgrow the document itself, and
+        it is committed with the revision either way - so an oversized part is replaced by
+        its size and the pointer that reads it.
+        """
+        if len(json.dumps(layout,ensure_ascii=False))<=LAYOUT_BUDGET or not isinstance(layout,dict):
+            return layout
+        out={}
+        for key,part in layout.items():
+            chars=len(json.dumps(part,ensure_ascii=False))
+            out[key]=part if chars<=LAYOUT_PART else {'too_large':True,'chars':chars,'pointer':f'/{key}'}
+        out['read']=(f"fp_source(pointer, doc='layout', name='{name}') reads a part of the "
+                     'readback that did not fit.')
+        return out
+
     def _appearance() -> dict:
         """What the conversation decided about light or dark, and the pack that follows."""
         record=store.appearance()
@@ -92,8 +166,8 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
         """Read structure, brief, evidence and review before editing.
 
         Returns the OUTLINE (block pointers, kinds, counts), hashes and review - not the
-        document. Read a part with fp_source, change one with fp_edit. include_source=True
-        returns the whole JSON; only a wholesale rewrite needs it.
+        document. include_source=True returns the whole JSON; only a wholesale rewrite
+        needs it.
         """
         current=store.get(name)
         research=store.research_current(name)
@@ -134,28 +208,34 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
              **({'reference_drift':reference_mode.fidelity_violations(value)}
                 if isinstance(value.get('reference'),dict) else {}),
              'artifacts':artifacts,'cache_error':cache_error,
-             'review':_review_summary(review_document(store,name)),
+             'review':_review_brief(review_document(store,name)),
              'read':'fp_source(pointer) reads a slice; fp_edit(ops) changes one.'}
         if include_source:
             out['input']=value
         return out
 
     def fp_source(pointer: str='', name: str='infographic', doc: str='source', limit: int=6000) -> dict:
-        """Read ONE slice of the stored document or research by JSON pointer.
+        """Read ONE slice of the stored document, research or layout by JSON pointer.
 
-        pointer '' is the root, '/blocks/2/rows' a branch. doc: 'source' or 'research'.
-        A slice over `limit` chars returns its SHAPE (chars per child) instead, so the
-        next pointer can be narrower.
+        pointer '' is the root, '/blocks/2/rows' a branch. doc: 'source', 'research' or
+        'layout' (the renderer's readback, when a part did not fit). A slice over `limit`
+        chars returns its SHAPE (chars per child), so the next pointer can be narrower.
         """
-        if doc not in ('source','research'):
-            raise ValueError("doc must be 'source' or 'research'")
+        if doc not in ('source','research','layout'):
+            raise ValueError("doc must be 'source', 'research' or 'layout'")
+        stamp: dict={}
         if doc=='research':
             value=store.research_current(name)['value']
         else:
             current=store.get(name)
             if not current:
                 raise ValueError('No rendered revision for this name')
-            value=current['input']
+            value=current['receipt'].get('layout') if doc=='layout' else current['input']
+            # A readback belongs to the render that produced it, and the next write replaces
+            # it. Name the revision so a pointer carried over from an earlier result is read
+            # as the current readback, not mistaken for the one it was summarized from.
+            if doc=='layout':
+                stamp={'revision':current['revision']}
         try:
             node=pointer_get(value,pointer) if pointer else value
         except (KeyError,IndexError,TypeError,ValueError):
@@ -163,7 +243,7 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
         limit=max(200,min(int(limit),20_000))
         body=json.dumps(node,ensure_ascii=False)
         if len(body)<=limit:
-            return {'pointer':pointer,'doc':doc,'value':node,'chars':len(body)}
+            return {'pointer':pointer,'doc':doc,**stamp,'value':node,'chars':len(body)}
         shape: Any
         if isinstance(node,dict):
             shape={k:len(json.dumps(v,ensure_ascii=False)) for k,v in node.items()}
@@ -171,8 +251,8 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
             shape=[{'pointer':f'{pointer}/{i}','kind':(v.get('kind') if isinstance(v,dict) else type(v).__name__),
                     'chars':len(json.dumps(v,ensure_ascii=False))} for i,v in enumerate(node[:60])]
         else:
-            return {'pointer':pointer,'doc':doc,'value':body[:limit],'chars':len(body),'clipped':True}
-        return {'pointer':pointer,'doc':doc,'chars':len(body),'too_large':True,
+            return {'pointer':pointer,'doc':doc,**stamp,'value':body[:limit],'chars':len(body),'clipped':True}
+        return {'pointer':pointer,'doc':doc,**stamp,'chars':len(body),'too_large':True,
                 'shape_chars_per_child':shape,
                 'read':'Ask for a narrower pointer, or raise limit if you truly need it all.'}
 
@@ -237,7 +317,7 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
                 document['reference'] = {}
             needed = design.required(document)
             key = 'draw:' + ','.join(sorted(names)) + (':redraw' if redraw else '')
-            if not again and store.served(key):
+            if not again and key in delivered:
                 return {'topic': topic, 'acknowledge': {n: design.digest(n) for n in needed},
                         **_pointer(key, f"the {', '.join(names)} contract, the frame "
                                         f"fields and {len(needed)} rule cards")}
@@ -254,30 +334,29 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
                 # The shape of the transcription the render gate demands. Without it the
                 # only way to learn it is to read another document's stored reference.
                 payload['reproduce'] = reference_mode.CONTRACT
-            for served in (key, 'input', *(f'grammar:{n}' for n in names),
-                           *(f'rules:{n}' for n in needed)):
-                store.mark_served(served)
+            delivered.update((key, 'input', *(f'grammar:{n}' for n in names),
+                              *(f'rules:{n}' for n in needed)))
         elif topic == 'grammar':
             if not name:
                 raise ValueError(
                     "fp_guide('grammar') needs name=<id>; call fp_guide('vocabulary') "
                     "for the ids."
                 )
-            if not again and store.served(f'grammar:{name}'):
+            if not again and f'grammar:{name}' in delivered:
                 return {'topic': topic, **_pointer(f'grammar:{name}',
                                                    f"the {name} contract")}
             payload = sdk.grammar(name)
-            store.mark_served(f'grammar:{name}')
+            delivered.add(f'grammar:{name}')
         elif topic == 'input':
-            if not again and store.served('input'):
+            if not again and 'input' in delivered:
                 return {'topic': topic, **_pointer('input', 'the frame fields')}
             payload = sdk.input_contract()
-            store.mark_served('input')
+            delivered.add('input')
         elif topic == 'language':
-            if not again and store.served('language'):
+            if not again and 'language' in delivered:
                 return {'topic': topic, **_pointer('language', 'the design tokens')}
             payload = {'content': sdk._read('docs/DESIGN-LANGUAGE.md')}
-            store.mark_served('language')
+            delivered.add('language')
         else:
             raise ValueError(
                 "Invalid guide topic. Use vocabulary, draw (with name), grammar (with "
@@ -299,11 +378,11 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
         if appendix:
             loaded=design.appendix(name)
         else:
-            if not again and store.served(f'rules:{name}'):
+            if not again and f'rules:{name}' in delivered:
                 return {'name':name,'digest':design.digest(name),'available':design.SKILLS,
                         **_pointer(f'rules:{name}', f'the {name} card')}
             loaded=design.load(name)
-            store.mark_served(f'rules:{name}')
+            delivered.add(f'rules:{name}')
         return {**loaded,'available':design.SKILLS,
                 'binding':'These rules are enforced, not advisory: fp_render rejects a '
                           'document whose design_rules omit a required skill, and '
@@ -362,8 +441,8 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
                   design_rules: str='', name: str='infographic', runtime_upgrade: bool=False) -> dict:
         """Render the FIRST revision or a wholesale rewrite; updates the stock viewer.
 
-        input_json is the whole semantic document, so any later change belongs in fp_edit.
-        Expected revisions are mandatory (CAS). design_rules is the {skill: digest} map
+        input_json is the whole semantic document. Expected revisions are mandatory
+        (CAS). design_rules is the {skill: digest} map
         fp_guide('draw') returns, and the document is mechanically checked against the
         decidable rules before anything is rendered.
         """
@@ -440,17 +519,17 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
         # fp_history; repeating it here would be paid for on every following model call.
         committed=state['receipt']
         out={'ok':state['cache_error'] is None,'revision':state['revision'],
-             'cache_error':state['cache_error'],'committed':True,'name':name,**rules,
+             'cache_error':state['cache_error'],'committed':True,'name':name,**_gate(rules),
              'receipt':{k:committed.get(k) for k in
                         ('compiler','renderer_fingerprint','source_sha256','design_rules','reference','status')},
              'audit':committed.get('audit'),
              # What the renderer actually laid out. The delivered SVG is outlined glyphs -
              # no text nodes, every rect a path - so reading it answers nothing and costs
              # tens of thousands of tokens. This is the readback; the PNG is the picture.
-             'layout':committed.get('layout'),
+             'layout':_layout(committed.get('layout'),name),
              '_display':{'fp_preview':{'path':f'fp/{name}.svg','revision':state['revision']}} if not state['cache_error'] else {},
              'artifacts':{'png':f'fp/{name}.png','svg':f'fp/{name}.svg (outlined glyphs; read the PNG, not this)'},
-             'review':_review_summary(review_document(store,name)),
+             'review':_review_brief(review_document(store,name)),
              'notice':'Draft rendered. Check `layout` against the source, then discuss the result with the user; do not claim final verification.'}
         if applied is not None:
             out['ops_applied']=applied
@@ -526,22 +605,34 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
                 'cache_error':result['cache_error'],'committed':True,'name':name,
                 '_display':{'fp_preview':{'path':f'fp/{name}.svg','revision':result['revision']}} if not result['cache_error'] else {},
                 'restored_from':revision,'artifacts':{'svg':f'fp/{name}.svg','png':f'fp/{name}.png'},
-                'review':_review_summary(review_document(store,name))}
+                'review':_review_brief(review_document(store,name))}
 
-    def fp_review(name: str='infographic', checklist: bool=True) -> dict:
+    def fp_review(name: str='infographic', checklist: bool=True, again: bool=False) -> dict:
         """Mechanical checks PLUS the design rules this document must be inspected against.
 
         `checklist` returns every Do / Do not line of the skills this document's grammars
-        require, each with an id. fp_publish refuses until every id has a verdict, so this
-        is the final gate: read the rules again, look at the rendered artifact, answer.
-        Mechanical validation is not factual verification or a visual-quality score.
+        require, each with an id; fp_publish refuses until every id has a verdict. A
+        checklist already served returns a pointer, digests and all; again=True forces
+        it. Mechanical validation is not factual verification or a quality score.
         """
         out=_review_summary(review_document(store,name))
         if checklist:
             current=store.get(name)
             if not current:
                 raise ValueError('Nothing to inspect yet; render a draft first')
-            out['final_checklist']=design.checklist(current['input'])
+            full=design.checklist(current['input'])
+            # The rules, not the document, decide the key: the same grammars under the
+            # same digests produce the identical twenty thousand characters, and the
+            # second copy is carried by every call that follows it. A document that
+            # gains a grammar - or a rule that is edited - is a different checklist.
+            key='checklist:'+','.join(f'{n}@{d}' for n,d in sorted(full['skills'].items()))
+            if not again and key in delivered:
+                out['final_checklist']={'skills':full['skills'],'item_count':len(full['items']),
+                                        **_pointer(key,f"{len(full['items'])} checklist items for "
+                                                       +', '.join(sorted(full['skills'])))}
+            else:
+                delivered.add(key)
+                out['final_checklist']=full
         return out
 
     def fp_publish(expected_revision: int, expected_research_revision: int,
@@ -576,6 +667,16 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
                f'Research revision: {expected_research_revision}','','## Captured sources']
         for s in review['sources']:
             lines.extend(['','```text',s['locator'].replace('```','[backticks]'),'```',f'SHA-256 of captured text: `{s["sha256"]}`'])
+        # A redraw's evidence is the source it transcribes, not a research claim. Without
+        # this the receipt of a published redraw says "captured sources:" and nothing.
+        redrawn=(store.get(name)['receipt'] or {}).get('reference')
+        if isinstance(redrawn,dict):
+            lines.extend(['','## Redrawn source',
+                          f'- {redrawn.get("kind")} `{redrawn.get("source_id")}`: '
+                          +str(redrawn.get('locator','')).replace('`','')[:200],
+                          f'- SHA-256 of the captured source: `{redrawn.get("image_sha256") or redrawn.get("structure_sha256")}`',
+                          '- Fidelity is checked against the transcription in `reference`, '
+                          'not against the source itself.'])
         lines.extend(['','## Design inspection',
                       f'{inspection["inspected"]} rules inspected against the rendered artifact.',
                       *[f'- `{n}` @ `{d[:12]}`' for n,d in sorted(inspection['skills'].items())],

@@ -66,22 +66,6 @@ class Store:
         finally:
             db.close()
 
-    def served(self, key: str) -> bool:
-        """Has this exact contract already been delivered in full to this workspace?
-
-        Every tool result stays in the conversation and is re-sent on every later call,
-        so serving one contract twice is paid for until the conversation ends. The
-        ledger is what lets the second request answer with a pointer instead.
-        """
-        with self.connect() as db:
-            row = db.execute("SELECT value FROM meta WHERE key=?", (f"served:{key}",)).fetchone()
-        return row is not None
-
-    def mark_served(self, key: str) -> None:
-        with self.connect() as db:
-            db.execute("INSERT OR REPLACE INTO meta VALUES (?,?)",
-                       (f"served:{key}", str(time.time())))
-
     def appearance(self) -> dict | None:
         """Light or dark, as the USER declared it - or nothing at all.
 
