@@ -340,6 +340,8 @@ notary key.
 | Installed app launched | sidecar answered `/v1/health` with `{"status":"ok"}`; the stock shell rendered with its sidebar, session list, transcript, composer and right rail (screenshot reviewed) |
 | Shipped bundle renders | the installed bundle's own runtime (`node v22.16.0`, staged fp-kit) rendered a 6-row table to a 580,967-byte PNG and 229,613-byte SVG through `fp-kit/9e7653d9027b` |
 | Mounted bundle contents | 9 rule files (5 cards + 4 appendices), 9 Pretendard weights with `OFL.txt`, Node v22.16.0, 3,727 hashed entries in `BUILD-MANIFEST.json` |
+| Published asset re-downloaded | `gh release download v0.3.9` returned 178,107,724 bytes, sha256 identical to the built DMG; quarantined copy `accepted — source=Notarized Developer ID`, ticket validates (GitHub serves it as `FP.Studio_0.3.9_aarch64.dmg`) |
+| Full assembled suite, FP plus upstream | 2,188 passed, 1 skipped, with the shipped bundle as the runtime |
 
 Still not run: installation on a separate clean Mac, and a full live-provider research → draft → revision →
 publish conversation in this build.

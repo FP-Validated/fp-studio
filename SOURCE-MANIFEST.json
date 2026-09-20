@@ -46,7 +46,7 @@
   "docs/DIFF-POLICY.md": "37b7273bdfbbe50fc20215fc09cd1124e345a69b055fca21b730c71c010e834d",
   "docs/DMG.md": "1135b0e4baef071608d95dcf4e53fd6152412eefde16f0baeccb7089ade6d313",
   "docs/REVIEW.md": "b98d90379cf3a597dae3ea49f8d45a0a335ec0907d6527cbf68f00214539f2cf",
-  "docs/TEST-REPORT.md": "f8c89253d0944620abb0cabbeb79c385b2e94027c77d7a9510ba1e11c61c2023",
+  "docs/TEST-REPORT.md": "d86bec618ed698ff916e617651503f711636d6123f42433b70eae4a2ca62fa12",
   "overlay/coworker/fp/__init__.py": "43a844303bbe928f44bf6f40dd2edb8a4c82865bb37d5c88179f6c6934343bad",
   "overlay/coworker/fp/common.py": "6c14bf995ec48e928fcf21634ca1849bbf2524bfeb7ab6f22097c17f3192db1d",
   "overlay/coworker/fp/design.py": "21a2a72f41d60d574404865e8b94cff3256883fd52ae6438d17fcff276db90aa",
@@ -115,12 +115,12 @@
   "tests/latestArtifact.test.cjs": "f5c442065381e4123cfa1b124493498009109bda80d2bb87cea532798f070073",
   "tests/test_assembly.py": "4d4f1421e85b5bed7fd89385eadf975ac9b461bc9fbb5e0ade3227deaba4b109",
   "validation/ENVIRONMENT.json": "df56540b7aead48ec11ed420c3a841d89ec45bfe803666acf146d79e7f0206e0",
-  "validation/assembled-tests.txt": "53755ad4d27c411bde5d111a7b52d9abe867872aac0f3ecb472784b5357684b2",
+  "validation/assembled-tests.txt": "934b3af8759ad33e85a711da0559279d6a12a9f2538ce9acf13fa716172c26ec",
   "validation/js/latestArtifact.js": "193adf50cc05028f7fc3fb2ae72fa351b560785a89d7d32d39110eecda75c681",
-  "validation/node-tests.txt": "a66473787058965a4aa23d623c953d6e180a38f483df2319f30bd8d60426eaf0",
+  "validation/node-tests.txt": "cc9eaf44d658e68c2e97e4dc2001d24c026601830d1fc67485e65000330b946c",
   "validation/overlay-contract.txt": "f9dffe708bb17cb83ee8083ed5389942d3c938bd59ff03998ce1fe280cd4c866",
-  "validation/preview-tests.txt": "f3ee4b791bbbd6567005ce511b6a453c04db88c2d79bbc9df5d73dfb1c5ac2d3",
-  "validation/python-tests.txt": "7862e3e2f519df663d4f8d010e2b25ffd60fd52e8ea7bd5f1e40a5e19c619593",
+  "validation/preview-tests.txt": "75c31a2541520e0860ac0255c4b6c6952c151d46bd3a3f9a61e81d6560dab1d7",
+  "validation/python-tests.txt": "e8e4a7edffd93e3a3bc69ae0c4b45f75884bae3fb3575a365cc9a84e09433077",
   "validation/syntax.txt": "9f0811d06ca0f5455a72e19fdb3bc3e9f22e6b758a4d5239b8db26c7c037743b"
  }
 }
