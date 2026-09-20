@@ -256,15 +256,17 @@ def capture_structure(store: Store, text: str, locator: str, form: str,
     )
 
 
-def record_appearance(store: Store, text: Any, channel: str) -> dict | None:
+def record_appearance(store: Store, text: Any, channel: str,
+                      question: Any = "") -> dict | None:
     """Store a light/dark declaration if the user's words carry one.
 
     Both channels a user speaks through land here: the message they typed and the answer
-    they gave `ask_user`. The model never calls this; it has no tool that does.
+    they gave `ask_user`. The model never calls this; it has no tool that does. `question`
+    is the ask an answer replies to - it qualifies a bare "Both", nothing more.
     """
     from .design import appearance_declaration
 
-    found = appearance_declaration(text)
+    found = appearance_declaration(text, question)
     if not found:
         return None
     return store.set_appearance(found["mode"], found["quote"], channel)

@@ -342,6 +342,30 @@ def test_both_means_either_pack_may_be_rendered(tmp_path):
         design.appearance_gate(Store(tmp_path).appearance(), dict(REPORT, theme="starter"))
 
 
+def test_the_answer_the_refusal_prescribes_records_it(tmp_path):
+    """The refusal offers options=['Dark','Light','Both'] - and "Both" named no colour.
+
+    A recorded conversation: the user asked for "화이트 다크 2가지 버전", answered the
+    question with "Both" twice, and every light render was still refused with "the user
+    asked for dark". They interrupted the fourth round. The light version never existed.
+    """
+    store = Store(tmp_path)
+    store.set_appearance("dark", "Dark", "ask")
+
+    # The answer widens the declaration, because that is what the user said.
+    recorded = record_appearance(store, "Both", "ask", "Light or dark?")
+    assert recorded["mode"] == "both"
+    for pack in ("fp-v1", "fp-v1-light"):
+        design.appearance_gate(store.appearance(), dict(REPORT, theme=pack))
+
+    # Korean answers to the same question, and the question is what makes it decidable.
+    for said in ("둘 다", "둘다 만들어줘", "두 버전 모두", "both please"):
+        assert design.appearance_declaration(said, "화이트(라이트)와 다크 중 어느 쪽인가요?") \
+            == {"mode": "both", "quote": said}
+    assert design.appearance_declaration("둘 다", "어느 문법으로 그릴까요? 표 아니면 흐름도") is None
+    assert design.appearance_declaration("둘 다") is None
+
+
 def test_nothing_the_model_writes_records_a_declaration(tmp_path):
     # A document field is the model's own text, so it cannot open the gate.
     with pytest.raises(DesignRulesError):

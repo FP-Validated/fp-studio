@@ -99,6 +99,10 @@ _APPEARANCE_CONTEXT = (
     "모드", "테마", "버전", "배경", "판", "스타일", "바탕",
 )
 _APPEARANCE_PARTICLE = re.compile(r"^\s*(?:로|으로|는|은|이|가|랑|과|와)")
+# The answer the refusal itself prescribes: options=['Dark','Light','Both']. "Both" names
+# no colour, so the scan above cannot see it - and a user who tapped it was told, three
+# renders later, that the conversation had never heard them.
+_BOTH_WORDS = ("both", "둘 다", "둘다", "두 버전", "두개 다", "두 개 다", "양쪽", "모두 다", "다 만들")
 # The shape of an answer to a question: "Dark", "라이트", "둘 다".
 _APPEARANCE_ANSWER = 24
 
@@ -107,7 +111,7 @@ class DesignRulesError(ValueError):
     """A design-rules refusal carrying the exact remedy in its message."""
 
 
-def appearance_declaration(text: Any) -> Optional[dict[str, str]]:
+def appearance_declaration(text: Any, question: str = "") -> Optional[dict[str, str]]:
     """Light or dark as the user stated it, or None. Only their words ever land here.
 
     The gate this feeds must be satisfiable in one round trip, so a declaration is read
@@ -116,6 +120,12 @@ def appearance_declaration(text: Any) -> Optional[dict[str, str]]:
     silently choose paper. A word counts when a mode word sits beside it, when a Korean
     colour word takes a particle ("다크로"), or when the whole message is short enough to be
     an answer to the question.
+
+    `question` is the ask this text answers, and it decides ONE thing: whether a bare
+    "Both" / "둘 다" - which names no colour at all - is about the appearance. The
+    declaration is still the user's word; the model's question cannot produce one, only
+    say which axis the user was answering on. Without it, the answer the refusal itself
+    prescribes recorded nothing and the render was refused again.
     """
     if not isinstance(text, str) or not text.strip():
         return None
@@ -138,12 +148,28 @@ def appearance_declaration(text: Any) -> Optional[dict[str, str]]:
                     break
             if mode in found:
                 break
-    if not found:
-        return None
     if len(found) == 2:
         return {"mode": "both", "quote": max(found.values(), key=len)}
-    mode, quote = next(iter(found.items()))
-    return {"mode": mode, "quote": quote}
+    if found:
+        mode, quote = next(iter(found.items()))
+        return {"mode": mode, "quote": quote}
+    if _answers_both(low, question):
+        return {"mode": "both", "quote": body[:200]}
+    return None
+
+
+def _answers_both(low: str, question: Any) -> bool:
+    """Did the user answer "both" to a question that was about the appearance?
+
+    Only an appearance question qualifies it: "둘 다" replying to "which grammar?" is not
+    a declaration, and a colour word in the question is what makes the axis the user was
+    answering on decidable.
+    """
+    if not any(word in low for word in _BOTH_WORDS):
+        return False
+    asked = (question if isinstance(question, str) else str(question or "")).lower()
+    modes = sum(any(word in asked for word in words) for words in _APPEARANCE_WORDS.values())
+    return modes == 2
 
 
 def appearance_gate(recorded: Optional[dict], value: Any) -> None:

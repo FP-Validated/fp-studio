@@ -180,6 +180,9 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
             return {'exists':False,'revision':0,'research':_research_summary(research),
                     'sources':_sources_summary(),'references':refs,'legacy_v02_detected':legacy,
                     'appearance':_appearance(),
+                    # Say what this workspace HAS, so a name that missed is one call, not
+                    # a guessing round per candidate.
+                    'documents':store.names(),
                     'notice':'Import v0.2 history before editing this name.' if legacy
                              else ('Redraw the supplied source: transcribe it into reference and keep its grammar, structure, wiring and copy.'
                                    if refs else 'Compose from the user content; no template selection.')}
@@ -236,10 +239,17 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
             # as the current readback, not mistaken for the one it was summarized from.
             if doc=='layout':
                 stamp={'revision':current['revision']}
+        # The root is '', and a model that reaches for '/' or a quoted '""' - both of
+        # which happened, three wasted calls in one turn - means the same thing. Accept
+        # them, and name the form in the refusal for anything else.
+        pointer=(pointer or '').strip().strip('"\'')
+        if pointer in ('', '/', '#'):
+            pointer=''
         try:
             node=pointer_get(value,pointer) if pointer else value
         except (KeyError,IndexError,TypeError,ValueError):
-            raise ValueError(f'No such path: {pointer}') from None
+            raise ValueError(f"No such path: {pointer} (the root is pointer='', a branch "
+                             "is '/blocks/0')") from None
         limit=max(200,min(int(limit),20_000))
         body=json.dumps(node,ensure_ascii=False)
         if len(body)<=limit:
@@ -317,25 +327,45 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
                 document['reference'] = {}
             needed = design.required(document)
             key = 'draw:' + ','.join(sorted(names)) + (':redraw' if redraw else '')
-            if not again and key in delivered:
-                return {'topic': topic, 'acknowledge': {n: design.digest(n) for n in needed},
+            # Each piece is tracked on its own, so the second `draw` of the same grammar
+            # (redraw first, then plain) re-sends only what this call adds. That call cost
+            # 14,000 characters of already-delivered contract in a recorded turn.
+            pieces = ({'input'} | {f'grammar:{n}' for n in names}
+                      | {f'rules:{n}' for n in needed}
+                      | ({'reproduce'} if redraw else set()))
+            missing = pieces if again else pieces - delivered
+            acknowledge = {n: design.digest(n) for n in needed}
+            if not missing:
+                return {'topic': topic, 'acknowledge': acknowledge,
+                        'appearance': _appearance(),
                         **_pointer(key, f"the {', '.join(names)} contract, the frame "
                                         f"fields and {len(needed)} rule cards")}
             payload = {
-                'grammars': [sdk.grammar(n) for n in names],
-                'input': sdk.input_contract(),
-                'design_rules': [design.load(n) for n in needed],
-                'acknowledge': {n: design.digest(n) for n in needed},
+                'acknowledge': acknowledge,
+                # Light or dark is the user's, and this is the call before the render:
+                # without it the model cannot tell a missing declaration from one it
+                # already has, so it asks again - four times, in a recorded turn.
+                'appearance': _appearance(),
                 'next': 'Render with design_rules=<the acknowledge map>. No further '
                         'rule call is needed; fp_design_rules(kind, appendix=True) serves '
                         'a frame value or exact stroke behind a card when one is in doubt.',
             }
-            if redraw:
+            if [n for n in names if f'grammar:{n}' in missing]:
+                payload['grammars'] = [sdk.grammar(n) for n in names
+                                       if f'grammar:{n}' in missing]
+            if 'input' in missing:
+                payload['input'] = sdk.input_contract()
+            if [n for n in needed if f'rules:{n}' in missing]:
+                payload['design_rules'] = [design.load(n) for n in needed
+                                           if f'rules:{n}' in missing]
+            if 'reproduce' in missing:
                 # The shape of the transcription the render gate demands. Without it the
                 # only way to learn it is to read another document's stored reference.
                 payload['reproduce'] = reference_mode.CONTRACT
-            delivered.update((key, 'input', *(f'grammar:{n}' for n in names),
-                              *(f'rules:{n}' for n in needed)))
+            held = sorted(pieces - missing)
+            if held:
+                payload['served_earlier'] = held
+            delivered.update((key, *pieces))
         elif topic == 'grammar':
             if not name:
                 raise ValueError(
@@ -376,7 +406,13 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
         """
         name=(kind or design.INDEX_SKILL).strip()
         if appendix:
+            # The appendix is the larger half of a skill (9,113 characters for the table
+            # rules), and a turn that re-read the same one paid for it twice.
+            if not again and f'appendix:{name}' in delivered:
+                return {'name':name,'digest':design.digest(name),'available':design.SKILLS,
+                        **_pointer(f'appendix:{name}', f'the {name} appendix')}
             loaded=design.appendix(name)
+            delivered.add(f'appendix:{name}')
         else:
             if not again and f'rules:{name}' in delivered:
                 return {'name':name,'digest':design.digest(name),'available':design.SKILLS,

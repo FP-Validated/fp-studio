@@ -346,6 +346,54 @@ notary key.
 Still not run: installation on a separate clean Mac, and a full live-provider research → draft → revision →
 publish conversation in this build.
 
+## 2026-09-20 — 0.3.10: the first message of a session was thrown away
+
+Two recorded conversations in the installed 0.3.9 build, read from
+`~/.config/fp-studio/conversations/*.jsonl` and the workspace store. One asked for a white and a
+dark version of an attached table; the other for an attached diagram redrawn in English. Both
+attachments reached the model (`image_url` parts of 76,577 and 102,241 characters), and neither
+became a captured source: `/Users/steve/fpstudio` had no `fp/attachments` directory and one
+`local_file` row from an earlier week.
+
+The sidecar log named the cause. Each session's FIRST socket carries no folder:
+
+```
+WebSocket /ws/session/b17a1ba3-b1f?workspace=&agent=cowork   [accepted]   ← the message + image
+WebSocket /ws/session/b17a1ba3-b1f?workspace=%2FUsers%2Fsteve%2Ffpstudio  ← a later reconnect
+```
+
+`if capture_turn is not None and workspace:` read that empty parameter, so on exactly the turn that
+carries the attachment and the user's own "화이트 다크 2가지 버전" both were dropped. Everything the
+user saw follows from it.
+
+| Defect | Evidence in the recording | Fix and its test |
+|---|---|---|
+| The attached source was never captured, so the redraw had nothing to point at | `fp_capture_image {}` → "Pass a path…", then 12 `fp_inspect`, 12 `fp_source`, a `grep` and a `list_files` hunting for it | capture and the ask-channel declaration both resolve the workspace through `manager.engine_workspace(...)` — `test_fp_first_turn.py` drives the real socket with `?workspace=` empty and asserts the image row, the file on disk and `mode='both'` |
+| The appearance question never ended | `fp_render(light)` refused twice → `ask_user('Light or dark?')` → **"Dark"** → the model asks whether both are wanted → **"Both"** → nothing recorded → three more refusals ("the user asked for dark") → `ask_user` again → **"Both"** → refusal → a fourth ask, answered `interrupted by user`. The light document was never rendered | `"Both"`, `"둘 다"`, `"둘다 만들어줘"`, `"두 버전 모두"` record `both` when the question they answer names light and dark; the same words against "어느 문법으로 그릴까요?" record nothing (`test_the_answer_the_refusal_prescribes_records_it`) |
+| One `read_file` cost more than everything else in the turn | `read_file('fp/grt-overall-structure.png')` returned 918,976 characters of U+FFFD with a note offering lines 2001-6157; re-sent on all 18 later calls = 16.5M of that turn's 19.0M | `read_file` refuses a file whose first bytes are not UTF-8 text, naming path and size (190 characters); instruction 9 no longer says "look at the PNG" |
+| The same contract was bought twice | `fp_guide('draw', 'architecture', redraw=True)` then `fp_guide('draw', 'architecture')`: 14,525 characters of grammar, frame fields and cards already in the transcript. `fp_design_rules(appendix=True)` twice for one kind | `draw` tracks each piece and serves only what is missing; the appendix has its own ledger key. 14,525 → 604 and 3,965 → 477, measured by replaying the recorded calls |
+| Four `ask_user` rounds about a declaration the tools could already see | the model has no way to read the store, and policy says "ask if they have not said" | `fp_guide('draw')` — the call immediately before a render — carries `appearance` |
+| Name and pointer guessing | 8 `fp_inspect` calls on names that do not exist; `fp_source(pointer='/')` and `pointer='""'` → "No such path" three times | a miss lists the workspace's documents; `'/'`, `'""'` and `''` all read the root, and the refusal names the form |
+
+Cumulative tool-result replay for the recorded 44-call turn, same call sequence with the new
+payload sizes measured by replaying each `fp_guide`/`fp_design_rules`/`read_file` call against the
+built tree: **18,999,604 → 2,230,162 characters (89% less)**. The 25-call turn's traffic barely
+moves (801,053 → 798,238) because its waste was rounds, not payload: five questions, six refused
+renders and a version that never got drawn.
+
+| Check | Result |
+|---|---|
+| `python -m pytest -q tests` (repo) | 8 passed |
+| FP suites in the assembled tree (real resvg, real permission integration, shipped fonts) | 194 passed (185 before) |
+| `FP_ASSEMBLED` gate | 242 passed |
+| Full assembled suite, FP plus upstream | 2,197 passed, 1 skipped (2,188 before) |
+| Fixed per-call cost | 15,776 of the 15,800 budget (15,772 before): instruction 9 now forbids reading an artifact file, inside the same budget |
+
+The pre-fix failure is pinned, not assumed: reverting the capture hook to the query parameter makes
+`test_the_first_message_is_captured_when_the_socket_names_no_workspace` fail with `[] != ['attachment:table.png']`.
+
+Not run: a live-provider conversation in a rebuilt bundle, and installation on a separate clean Mac.
+
 ## Reassembly equivalence
 
 `python scripts/assemble.py --dest /tmp/fp-verify-8 --openworker-source ~/Developer/fp-studio-v0.3

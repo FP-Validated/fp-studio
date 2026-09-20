@@ -23,7 +23,14 @@ Allowed changes:
   id and sha256 instead of replaying a data URL, and a paste is readable evidence rather than a
   sentence in the transcript. Best-effort: a capture failure never blocks the user's message, the
   detector is deliberately narrow so prose and pasted code are not captured, and nothing about the
-  stock attachment path changes.
+  stock attachment path changes. The workspace for that capture — and for a light/dark declaration
+  answered through `ask_user` — is `manager.engine_workspace(...)`, the same resolution the engine
+  binds, because the socket's `?workspace=` is empty on the connection that carries a new session's
+  first message: the one with the attachment in it.
+- Refuse `read_file` on a file whose first bytes are not UTF-8 text, naming the path and its size.
+  Upstream decoded with `errors="replace"`, so a read of a rendered PNG returned 2,000 lines of
+  U+FFFD (919,016 characters, re-sent on every later model call of the turn) and offered three more
+  pages of it. Text files, including non-ASCII text, are unaffected.
 - Add `fp_capture_image` and the `fp-design-reproduce` rules for redrawing a supplied source. A
   captured reference is no longer opt-in: `fp_render`/`fp_edit` refuse a document that neither
   transcribes it nor records the user's own words in `referenceWaiver`.

@@ -90,6 +90,19 @@ class Store:
         row = db.execute("SELECT revision FROM heads WHERE name=?", (name,)).fetchone()
         return row[0] if row else 0
 
+    def names(self) -> list[str]:
+        """Every document this workspace holds, newest revision first.
+
+        A miss used to answer only `exists: False`, so a model looking for the document
+        the user meant guessed one name per call - eight of them in one recorded turn.
+        """
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT h.name FROM heads h JOIN revisions r ON r.name=h.name "
+                "AND r.revision=h.revision ORDER BY r.created_at DESC LIMIT 60"
+            ).fetchall()
+        return [row[0] for row in rows]
+
     def research_current(self, name: str, db=None) -> dict:
         valid_name(name)
         if db is None:

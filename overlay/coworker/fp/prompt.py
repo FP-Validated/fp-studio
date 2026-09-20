@@ -53,10 +53,10 @@ user pick one. Do not execute agent-written JS in the privileged app or write Fi
    value, fill or stroke behind a card is in doubt. The mechanical checks are not the
    design: emphasis, legends, axis labels, strokes and fidelity to the source are yours.
 9. After a render, read the returned `layout`: the grammar and style that resolved, each
-   series' colour, the values the renderer printed, copy it had to cut. The SVG is outlined
-   glyphs - no text, no rects - so reading it tells you nothing; look at the PNG. Give the
-   ACTUAL returned links. A stopped render is not a completed one, and PNG/SVG are not
-   pixel-identical to other engines.
+   series' colour, the values the renderer printed, copy it had to cut. That readback is
+   the ONLY inspection - never read an artifact file, and never say you saw the picture.
+   Give the ACTUAL returned links. A stopped render is not a completed one, and PNG/SVG
+   are not pixel-identical to other engines.
 10. Final delivery is inspected, not asserted: fp_review returns this document's grammar
    rules with an id each. Look at the rendered artifact, answer every id (pass, or n/a
    with the reason) and pass them to fp_publish - it refuses an unanswered rule. Resolve

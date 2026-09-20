@@ -417,9 +417,12 @@ def test_a_contract_already_delivered_comes_back_as_a_pointer(tools):
     # A compaction can drop it, so the text stays reachable on request.
     assert 'FPInput' in tools['fp_guide']('input', again=True)['contract']
     assert "style:'paired'" in tools['fp_design_rules']('fp-design-chart', again=True)['rules']
-    # An appendix is read once, on demand, and is never suppressed.
-    for _ in range(2):
-        assert 'slanted (~48°)' in tools['fp_design_rules']('fp-design-chart', appendix=True)['rules']
+    # The appendix is deduped on its own key: it is the bigger half of a skill, and one
+    # recorded turn read the same one twice.
+    assert 'slanted (~48°)' in tools['fp_design_rules']('fp-design-chart',
+                                                        appendix=True)['rules']
+    assert tools['fp_design_rules']('fp-design-chart',
+                                    appendix=True).get('served_earlier') is True
 
 
 def test_the_final_checklist_is_served_once_per_conversation(tools, tmp_path):
@@ -517,3 +520,108 @@ def test_a_write_result_carries_the_findings_not_the_standing_advisory(tools, tm
     full = tools['fp_review'](checklist=False)
     assert len([f for f in full['failures'] if f.startswith('Unbound numeric value')]) == 8
     assert any('Mechanical checks do not prove' in w for w in full['warnings'])
+
+
+def test_a_second_draw_call_serves_only_what_it_adds(tmp_path, monkeypatch):
+    """`fp_guide('draw')` keyed the whole bundle on the redraw flag.
+
+    A recorded turn asked for the redraw variant of a grammar and then the plain one:
+    same contract, same frame fields, same rule cards, 14,000 characters for the second
+    copy - and every later call of that turn carried it.
+    """
+    monkeypatch.setattr(RenderController, 'run',
+                        lambda self, value, workspace, **kw: rendered('x'))
+    tools = {fn.__name__: fn for fn in fp_tools(tmp_path)}
+
+    first = tools['fp_guide']('draw', name='flowchart', redraw=True)
+    assert first['grammars'] and first['input'] and first['design_rules'] and first['reproduce']
+
+    again = tools['fp_guide']('draw', name='flowchart')
+    assert 'grammars' not in again and 'input' not in again and 'design_rules' not in again
+    assert chars(again) < chars(first) / 20
+    # What the render actually needs from this call survives: the digest map. The redraw
+    # variant requires one card more, so this is the plain document's own set.
+    assert set(again['acknowledge']) == {'fp-design-system', 'fp-design-flowchart'}
+    assert again['acknowledge'].items() <= first['acknowledge'].items()
+    assert again['served_earlier'] is True
+
+    # A grammar this conversation has NOT been handed is still served, and only that one.
+    added = tools['fp_guide']('draw', name='flowchart,table')
+    assert [g['id'] for g in added['grammars']] == ['table']
+    assert 'input' not in added and any(r['name'] == 'fp-design-table'
+                                        for r in added['design_rules'])
+
+
+def test_an_appendix_is_served_once_per_conversation(tmp_path):
+    """The appendix is the bigger half of a skill; one turn read the same one twice."""
+    tools = {fn.__name__: fn for fn in fp_tools(tmp_path)}
+
+    first = tools['fp_design_rules']('fp-design-flowchart', appendix=True)
+    assert chars(first) > 2000
+    repeat = tools['fp_design_rules']('fp-design-flowchart', appendix=True)
+    assert repeat.get('served_earlier') is True and chars(repeat) < chars(first) / 4
+    assert repeat['digest'] == first['digest']
+    # A compaction can drop it, and the card is a different payload from the appendix.
+    assert tools['fp_design_rules']('fp-design-flowchart', appendix=True,
+                                    again=True)['rules'] == first['rules']
+    assert 'rules' in tools['fp_design_rules']('fp-design-flowchart')
+
+
+def test_the_declared_appearance_rides_the_call_before_the_render(tmp_path):
+    """The model cannot see the store, so "ask if they have not said" is unanswerable.
+
+    Four `ask_user` rounds in one recorded turn, each about an appearance the user had
+    already stated. `fp_guide('draw')` is the call immediately before a render, so the
+    record belongs in its result - served or pointed at.
+    """
+    tools = {fn.__name__: fn for fn in fp_tools(tmp_path)}
+    assert tools['fp_guide']('draw', name='table')['appearance'] == {
+        'declared': False,
+        'ask': "ask_user(question='Light or dark?', options=['Dark','Light','Both'])"}
+
+    Store(tmp_path).set_appearance('both', '화이트 다크 두 버전', 'message')
+    later = tools['fp_guide']('draw', name='table')
+    assert later.get('served_earlier') is True
+    assert later['appearance'] == {'declared': 'both', 'theme': 'fp-v1 or fp-v1-light'}
+
+
+def test_reading_an_artifact_as_text_is_refused(tmp_path):
+    """One `read_file` of a rendered PNG cost 919,016 characters, re-sent 18 times.
+
+    `errors="replace"` turned the bytes into 2,000 lines of U+FFFD and the note offered
+    three more pages of it - 16.5M characters of the 19.4M that turn spent on tool
+    traffic. A text reader must say what the file is instead.
+    """
+    from coworker.tools.files import file_tools
+
+    (tmp_path / 'fp').mkdir()
+    png = tmp_path / 'fp/infographic.png'
+    png.write_bytes(b'\x89PNG\r\n\x1a\n' + bytes(range(256)) * 400)
+    (tmp_path / 'notes.md').write_text('# 표 재구성\nstill text\n', encoding='utf-8')
+
+    read_file = file_tools(str(tmp_path))[0]
+    refused = read_file('fp/infographic.png')
+    assert 'content' not in refused and 'note' not in refused
+    assert 'binary' in refused['error'] and str(png.stat().st_size) in refused['error']
+    assert chars(refused) < 400
+    # Text - including non-ASCII text - still reads.
+    assert 'still text' in read_file('notes.md')['content']
+
+
+def test_a_missing_document_names_the_ones_that_exist(tools, tmp_path):
+    """Eight inspects in one turn, one guessed name each, because a miss said nothing."""
+    tools['fp_render']('{"title":"A"}', 0, 0, acknowledge('{"title":"A"}'), name='grt-flow')
+
+    missed = tools['fp_inspect'](name='grt-flow-dark')
+    assert missed['exists'] is False and missed['documents'] == ['grt-flow']
+
+
+def test_the_root_pointer_is_reachable_however_it_is_written(tools):
+    """`pointer='/'` and a quoted `'""'` both errored; three wasted calls in one turn."""
+    tools['fp_render']('{"title":"A"}', 0, 0, acknowledge('{"title":"A"}'))
+
+    root = tools['fp_source']('')['value']
+    assert tools['fp_source']('/')['value'] == root
+    assert tools['fp_source']('""')['value'] == root
+    with pytest.raises(ValueError, match=r"the root is pointer=''"):
+        tools['fp_source']('/nope')
