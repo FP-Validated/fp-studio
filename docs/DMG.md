@@ -1,16 +1,17 @@
 # macOS build and internal release
 
-This document describes the build path. It produced `FP Studio_0.3.9_aarch64.dmg` on **2026-09-20**: Developer ID
+This document describes the build path. It produced `FP Studio_0.3.10_aarch64.dmg` on **2026-09-20**: Developer ID
 signature (`Hyunmin kim (KH55W9G87F)`), **notarized (`Accepted`, submission
-`50109f68-e62c-473f-a7f8-f2a13e0713f8`) and stapled**, sha256
-`86b1d342aa1bdff5341ab16b57fdb7ef70e5f7da1b4735447e16c78c90eda1b9`, published at
-https://github.com/FP-Validated/fp-studio/releases/tag/v0.3.9 . The 0.3.0 through 0.3.5 builds were notarized the
+`8e096b39-9a87-44d6-b53b-753abb865965`) and stapled**, sha256
+`b541063786f78efc76ea2dcbba229f7ae27f54131cea36976666c2378d37ed63`, published at
+https://github.com/FP-Validated/fp-studio/releases/tag/v0.3.10 . The 0.3.0 through 0.3.5 builds were notarized the
 same way and every DMG was withdrawn, because each shipped a frame that was wrong in what it showed - a broken
 attached-image redraw, clipped table cells, a collapsed table head, a bar grammar that could not hold a second
 series, a reproduce gate that could not see a value stored under a column the author named, and a reproduce gate a
-two-image turn could only get past by waiving it and composing from the web. 0.3.6 through 0.3.8 drew correctly and
+two-image turn could only get past by waiving it and composing from the web. 0.3.6 through 0.3.9 drew correctly and
 are withdrawn as superseded, not defective: 0.3.6 could only draw dark and never asked, 0.3.7 could not fill a
-category node or name a category, and 0.3.8 re-sent four payloads the conversation had already paid for. A copy
+category node or name a category, 0.3.8 re-sent four payloads the conversation had already paid for, and 0.3.9
+dropped the first message of every session - the one carrying the attachment and the light/dark declaration. A copy
 carrying the browser's quarantine attribute reports `accepted - source=Notarized Developer ID` and validates its
 stapled ticket. Preserve the original OpenWorker GUI and run these gates on the actual target Mac; installation on
 a clean, separate Mac is untested.

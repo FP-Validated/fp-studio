@@ -394,6 +394,31 @@ The pre-fix failure is pinned, not assumed: reverting the capture hook to the qu
 
 Not run: a live-provider conversation in a rebuilt bundle, and installation on a separate clean Mac.
 
+## 2026-09-20 — 0.3.10: signed, notarized release build
+
+Assembled into `/Users/steve/Developer/fp-studio-release-0.3.10` from the pinned commits, then
+`packaging/build_fp_studio_dmg.sh --release`.
+
+| Check | Result |
+|---|---|
+| Upstream GUI comparison | 44 GUI files equal upstream + 221 declared edits, 5 declared additions, no undeclared change |
+| Design rules staged | `fp-design-system@5d9787297db0`, `fp-design-table@5c8fb12a2bfa`, `fp-design-chart@a8a7dba5510c`, `fp-design-flowchart@dbc5e15f5c38`, `fp-design-reproduce@d61169d6cc1b` |
+| Python gate in the build tree (real resvg, real permission integration, supplied fonts) | 194 passed |
+| fp-kit `npm test` | 57 passed |
+| Original GUI unit tests + production build | 189 tests / 27 files passed, build succeeded |
+| Fork shell smoke E2E | 2 passed |
+| Container signature | `Developer ID Application: Hyunmin kim (KH55W9G87F)`, team `KH55W9G87F`, timestamp 2026-09-20 16:34:56 |
+| Notarization | submission `8e096b39-9a87-44d6-b53b-753abb865965`, `status: Accepted`, stapled, `stapler validate` worked |
+| DMG | `FP Studio_0.3.10_aarch64.dmg`, 175,092,614 bytes, sha256 `b541063786f78efc76ea2dcbba229f7ae27f54131cea36976666c2378d37ed63` |
+| Quarantined copy | `spctl -a -t open` → `accepted — source=Notarized Developer ID`; mounted, copied to `/Applications`, `spctl -a` → `accepted`, `CFBundleShortVersionString` 0.3.10 |
+| Installed app launched | sidecar answered `/v1/health` with `{"status":"ok"}` from `/Applications` (not a translocated copy) |
+| **The shipped binary captures the first message** | the installed `openworker-server`, driven over `/ws/session/…?workspace=&agent=cowork` — the GUI's first-connect shape — captured `attachment:table.png` (the same 57,380-byte PNG from the recorded conversation), wrote `fp/attachments/3cfdf8df967d4641.png` and recorded `mode='both'`, `channel='message'` |
+| The shipped read guard | `read_file('fp/grt-overall-structure.png')` on the 768,395-byte artifact returns `not text: … holds binary data (768395 bytes)` — 165 characters instead of 918,976 |
+| The light pack the user never got | with `both` declared, the build tree on the installed bundle's runtime rendered `theme='fp-v1-light'`, `appearance='light'`, 98,640-byte PNG / 99,210-byte SVG |
+| Mounted bundle contents | 9 rule files, 9 Pretendard weights, Node v22.16.0, 3,727 hashed entries in `BUILD-MANIFEST.json` |
+
+Still not run: a live-provider conversation in this build, and installation on a separate clean Mac.
+
 ## Reassembly equivalence
 
 `python scripts/assemble.py --dest /tmp/fp-verify-8 --openworker-source ~/Developer/fp-studio-v0.3
