@@ -559,6 +559,7 @@ Assembled into `/Users/steve/Developer/fp-studio-release-0.3.12` from the pinned
 | Quarantined copy | `spctl -a -t open` → `accepted — source=Notarized Developer ID` |
 | Installed and launched | copied to `/Applications`, `spctl -a` → `accepted`, `CFBundleShortVersionString` 0.3.12, sidecar answered `/v1/health` with `{"status":"ok"}` |
 | **The fix is in the shipped binary** | `coworker.compaction` extracted from the bundled PyInstaller archive at `/Applications/FP Studio.app/Contents/Resources/sidecar`: `IMAGE_TOKENS`, `CARRY_IMAGES`, `cap_explicit`, `_part_chars`, `carried_images` and the carry-forward notice are present, and `coworker.engine` carries `_COMPACTION_RETRY_DELAY`, `_compaction_reason` and the failure log line |
+| Published asset re-downloaded | `gh release download v0.3.12` returned 132,907,134 bytes, sha256 identical to the built DMG; quarantined copy `accepted — source=Notarized Developer ID`, ticket validates |
 
 Still not run: a live-provider conversation in this build, and installation on a separate clean Mac.
 
