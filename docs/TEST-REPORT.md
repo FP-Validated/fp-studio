@@ -456,6 +456,30 @@ nothing right of x=1544.57. The same three kit tests fail on the previous commit
 fp-kit moves to `17c89e711220d1d44977a2a21ec0bfea41339b6a`. Suites: 2,198 passed / 1 skipped
 in the assembled tree, fp-kit 60, repo 8.
 
+## 2026-09-20 — 0.3.11: signed, notarized release build
+
+Assembled into `/Users/steve/Developer/fp-studio-release-0.3.11` from the pinned commits
+(openworker `5bc10d92`, fp-kit `17c89e71`), then `packaging/build_fp_studio_dmg.sh --release`.
+
+| Check | Result |
+|---|---|
+| Upstream GUI comparison | 44 GUI files equal upstream + 221 declared edits, 5 declared additions, no undeclared change |
+| Design rules staged | `fp-design-system@5d9787297db0`, `fp-design-table@5c8fb12a2bfa`, `fp-design-chart@a8a7dba5510c`, `fp-design-flowchart@dbc5e15f5c38`, `fp-design-reproduce@e661096cd057` |
+| Python gate in the build tree (real resvg, real permission integration, supplied fonts) | 195 passed |
+| Full assembled suite, FP plus upstream | 2,198 passed, 1 skipped |
+| fp-kit `npm test` | 60 passed |
+| Original GUI unit tests + production build | 189 tests / 27 files passed, build succeeded |
+| Fork shell smoke E2E | 2 passed |
+| Notarization | submission `9950c3ba-9f8b-4e96-84bb-83681f3f7c47`, `status: Accepted`, stapled, `stapler validate` worked |
+| DMG | `FP Studio_0.3.11_aarch64.dmg`, 175,099,942 bytes, sha256 `eac7fdebcc4833512f9404955d92ca6bc54534ce896559afb60bd7b419a32144` |
+| Quarantined copy | `spctl -a -t open` → `accepted — source=Notarized Developer ID`; mounted, copied to `/Applications`, `spctl -a` → `accepted`, `CFBundleShortVersionString` 0.3.11 |
+| Installed app launched | sidecar answered `/v1/health` with `{"status":"ok"}` from `/Applications` |
+| **The band the user photographed, through the installed bundle** | the failing document (`note` 79 chars, `source` `X(@VitalikButerin)`, `dateAsOf`) rendered on `fp-kit/17c89e711220d1d44977a2a21ec0bfea41339b6a`: `Note` on its own line, `Source` and `Date as of` on the next, `layout.clipped` empty, nothing right of x=1544.57 — the mark starts at 1593 |
+| The reference frame's own note | the 171-character note renders in two lines, breaking after "ETHB operator" exactly as the reference does, with `Source` below it |
+| Both packs | `fp-v1` and `fp-v1-light` both correct in the shipped bundle; the light pack inherits the fixed chrome by `extends` |
+
+Still not run: a live-provider conversation in this build, and installation on a separate clean Mac.
+
 ## Reassembly equivalence
 
 `python scripts/assemble.py --dest /tmp/fp-verify-8 --openworker-source ~/Developer/fp-studio-v0.3

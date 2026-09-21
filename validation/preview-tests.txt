@@ -1,6 +1,6 @@
-✔ out-of-order artifact response is discarded (0.692166ms)
-✔ old session read is cancelled (0.076916ms)
-✔ transient reload preserves good image (0.073ms)
+✔ out-of-order artifact response is discarded (0.600417ms)
+✔ old session read is cancelled (0.072709ms)
+✔ transient reload preserves good image (0.072875ms)
 ℹ tests 3
 ℹ suites 0
 ℹ pass 3
@@ -8,4 +8,4 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 43.076083
+ℹ duration_ms 43.009208
