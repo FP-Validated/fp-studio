@@ -68,9 +68,9 @@ MIN_TEXT_SIZE = 24
 SIZE_GRID = 4
 # Fields the frame ships as required: an empty one is deleted, never left as a placeholder.
 OPTIONAL_FIELDS = ("subtitle", "source", "dateAsOf", "note")
-# The footer note is drawn on one line; see `_footer_note` for the arithmetic and for the
-# origins a note may have at all.
-MAX_NOTE = 80
+# The footer note is a label, not a paragraph; see `_footer_note` for the arithmetic and
+# for the origins a note may have at all.
+MAX_NOTE = 180
 # Words that make a note the label illustrative mode REQUIRES in the visual (same
 # vocabulary `research.py` checks for), so the gate below never blocks a required label.
 ILLUSTRATIVE_MARKS = (
@@ -591,10 +591,12 @@ def violations(value: Any) -> list[str]:
 def _footer_note(value: dict) -> list[str]:
     """The footer note is a label the user asked for, not a caption the model wrote.
 
-    Geometry, not taste: the note is drawn on ONE line at footer size 28 starting at
-    x=206, and the brand mark begins at x≈1593. That is ~97 characters before the note
-    runs under "FOUR PILLARS", and a shipped frame did exactly that. 80 keeps a margin
-    and keeps the sentence where a sentence belongs — the body, or the chat.
+    Geometry, not taste: the note is drawn at footer size 28 from x=206, and the band
+    stops 48px short of the FOUR PILLARS mark at x≈1593 and wraps to a SECOND line before
+    the other entries move down a row. That is ~95 Latin characters per line, so 180 is
+    two full lines with a margin — the length the band can actually show. A note longer
+    than the frame can hold is refused after the render too, by name: the renderer reports
+    what it had to cut, and a cut footer is a half sentence published as a fact.
 
     Origin, and this is the defect it exists for: a note nobody asked for kept appearing
     in the frame's bottom band — an "insight", a caveat, a hedge the source never had. The
@@ -609,9 +611,9 @@ def _footer_note(value: dict) -> list[str]:
     if len(note) > MAX_NOTE:
         return [
             f"note is {len(note)} characters: the footer note is a short label "
-            f"(max {MAX_NOTE}) drawn on one line, and a longer one runs under the FOUR "
-            "PILLARS mark. Shorten it, move the explanation into the body, or drop the "
-            "note — the user did not ask for a caption"
+            f"(max {MAX_NOTE}) and the band shows at most two lines. Shorten it, move "
+            "the explanation into the body, or drop the note — the user did not ask "
+            "for a caption"
         ]
     folded = note.casefold()
     if any(mark in folded for mark in ILLUSTRATIVE_MARKS):
@@ -684,7 +686,7 @@ def enforce(value: Any, acknowledged: Any) -> dict[str, Any]:
         "type scale (min 24, multiples of 4)",
         "palette binding (no raw hex)",
         "no empty or placeholder required fields",
-        f"footer note fits one line (max {MAX_NOTE} characters)",
+        f"footer note fits the band's two lines (max {MAX_NOTE} characters)",
         "the colour situation is stated, not defaulted",
     ]
     if isinstance(value, dict) and value.get("reference") is not None:

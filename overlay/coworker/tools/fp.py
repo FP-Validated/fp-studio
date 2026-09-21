@@ -528,6 +528,20 @@ def fp_tools(workspace: str | Path, roots=None) -> list:
             raise ConflictError('Stale research revision; fp_inspect again')
         result=controller.run(value,ws)
         svg,png=validate_artifacts(result)
+        # A table cell may end in an ellipsis; a field in the frame's chrome may not. The
+        # footer carries the user's own note, source and date, and the band now wraps and
+        # stacks to fit them - so a cut there means the text genuinely does not fit the
+        # frame, and truncating it silently would publish a half sentence as a fact.
+        cut=[c for c in (result.get('layout') or {}).get('clipped') or []
+             if isinstance(c,dict) and c.get('role')=='footer']
+        if cut:
+            raise ValueError(
+                'The footer cannot hold this text: '+'; '.join(
+                    f"{c.get('wanted','')!r} was cut to {c.get('shown','')!r}" for c in cut[:2])+
+                '. The band wraps to two lines and stacks its entries, so this is longer '
+                'than the frame can show. Shorten it, or move the explanation into the '
+                'body where a paragraph belongs.'
+            )
         fingerprint=result.get('renderer_fingerprint')
         if not isinstance(fingerprint,str) or len(fingerprint)!=64:
             raise ValueError('Renderer fingerprint missing')

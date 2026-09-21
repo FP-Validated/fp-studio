@@ -420,6 +420,42 @@ Assembled into `/Users/steve/Developer/fp-studio-release-0.3.10` from the pinned
 
 Still not run: a live-provider conversation in this build, and installation on a separate clean Mac.
 
+## 2026-09-20 — 0.3.11: the footer band was painted over the brand mark
+
+Two screenshots of the same 200px-tall strip: a correctly built FOUR PILLARS frame, and one
+this product shipped. In ours `X(@VitalikButerin)` sat on top of the FOUR PILLARS wordmark.
+
+`fp plan` on the exact document reproduces it with no rendering at all — the geometry says it:
+
+```
+Footer value Note    x=206  w=1086  right=1292
+Footer value Source  x=1488 w=271   right=1759   ← brand mark occupies 1593..1850
+Footer value Date    x=1988 w=172   right=2160   ← the frame is 1920 wide
+```
+
+`footerOps` walked the three entries left to right from a running `x`, each with `maxLines: 1`,
+and never compared that `x` to anything. There was no right edge in the function. The note's
+79 characters were legal (the gate capped it at 80, one line), so nothing upstream refused it;
+the two entries after it paid. The date was not clipped or shrunk — it was drawn 68px past the
+edge of the picture, silently absent from every PNG.
+
+| Defect | Root cause | Fix and its test |
+|---|---|---|
+| `Source` drawn on top of the FOUR PILLARS mark | entries placed from a running `x` with no boundary | the brand mark's left edge minus `brandGap` is the band's right edge; an entry that no longer fits starts a new row. Kit test asserts every footer op's right edge ≤ 1592.57 |
+| `Date as of` drawn at x=1988 on a 1920px frame | same | it moves down beside `Source`; the kit test asserts all three values are still drawn and that the two short ones share a row |
+| A long note could only be one line, so the gate capped it at 80 characters | `maxLines: 1` on the footer value | the value wraps to two lines at `valueLineHeight` 1.3; the cap is now 180, the measured two-line capacity. The designer's own reference note (171 characters) renders in two lines, unbroken |
+| A taller band would have been drawn over the content | `plan.ts` reserved the constant `footer.height` | the footer is laid out before the content budget and the frame reserves what it measured. Kit test asserts the band grows upward and content still clears it |
+| Text the band genuinely cannot hold would be truncated to `…` | nothing inspected the renderer's own report | `fp_render` refuses when `layout.clipped` names the `footer` role, quoting what was cut. A 170-character Korean note (one em per glyph) is refused rather than halved |
+
+Verified with the real compiler and the shipped fonts, not a mock: rendering the user's own
+failing document now produces `Note` on its line, `Source` and `Date as of` on the next, and
+nothing right of x=1544.57. The same three kit tests fail on the previous commit
+(`Footer value Source reaches 1759, the brand mark starts at 1592.57`, `note drew 1 line(s)`,
+`the taller band did not grow upward`) and pass on this one.
+
+fp-kit moves to `17c89e711220d1d44977a2a21ec0bfea41339b6a`. Suites: 2,198 passed / 1 skipped
+in the assembled tree, fp-kit 60, repo 8.
+
 ## Reassembly equivalence
 
 `python scripts/assemble.py --dest /tmp/fp-verify-8 --openworker-source ~/Developer/fp-studio-v0.3

@@ -66,8 +66,8 @@ note.
 Do not
 Don't round, rebase, convert units, recompute percentages or fill a missing value.
 Don't rewrite a label into a punchier one, and don't invent a title, source or note the
-source does not have. An unrequested footer note is not neutral: it is one line long,
-it sits across the frame's bottom band, and nobody asked for it.
+source does not have. An unrequested footer note is not neutral: it sits across the
+frame's bottom band, and nobody asked for it.
 
 Change the visual system, and only that
 Do

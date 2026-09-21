@@ -253,9 +253,17 @@ def test_a_footer_note_has_to_say_where_it_came_from():
     # The label illustrative mode demands in the visual is not an invented caption.
     assert design.violations({"title": "A", "note": "가상 예시 데이터"}) == []
     assert design.violations({"title": "A", "note": "Illustrative figures"}) == []
-    # Geometry still applies to a note that was asked for.
-    long_note = {"title": "A", "noteRequest": "they asked", "note": "x" * 81}
-    assert any("81 characters" in p for p in design.violations(long_note))
+    # Geometry still applies to a note that was asked for: the band wraps to two lines,
+    # so the reference note the designer's own frame carries (171 characters) is legal
+    # and a paragraph is not.
+    reference_note = ("The Ether Machine went private in Apr 2026. n/d: ETH units not "
+                      "disclosed for ETFs. ETHB operator reports conflict "
+                      "(Figment/Galaxy/Attestant vs Coinbase Prime); unresolved.")
+    assert len(reference_note) == 171
+    assert design.violations({"title": "A", "noteRequest": "they asked",
+                              "note": reference_note}) == []
+    long_note = {"title": "A", "noteRequest": "they asked", "note": "x" * 181}
+    assert any("181 characters" in p for p in design.violations(long_note))
 
 
 def test_a_redraw_may_only_carry_the_source_s_own_note():

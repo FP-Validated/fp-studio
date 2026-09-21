@@ -1,4 +1,4 @@
-# FP Studio 0.3.10
+# FP Studio 0.3.11
 
 **OpenWorker 원본 GUI에서 대화로 리서치하고 인포그래픽을 만드는 추가 기능 소스.**
 
@@ -294,7 +294,7 @@ python scripts/assemble.py \
   --fp-kit-source /path/to/fp-infographic-agent-kit
 ```
 
-OpenWorker 원본은 `5bc10d928e0b64aae74313349a3b17bd19643ae2`, FP kit는 `9e7653d9027b1cd58fe1d1687b019842795e5471`에 고정한다. 원본 anchor가 다르면 조립을 중단한다. npm의 전이 의존성 lock은 해당 설치에서 생성/검증하고 release에 보관해야 한다. 이 archive는 확인하지 못한 lock/integrity 값을 만들어 넣지 않았다.
+OpenWorker 원본은 `5bc10d928e0b64aae74313349a3b17bd19643ae2`, FP kit는 `17c89e711220d1d44977a2a21ec0bfea41339b6a`에 고정한다. 원본 anchor가 다르면 조립을 중단한다. npm의 전이 의존성 lock은 해당 설치에서 생성/검증하고 release에 보관해야 한다. 이 archive는 확인하지 못한 lock/integrity 값을 만들어 넣지 않았다.
 
 ## Mac 개발 실행
 
