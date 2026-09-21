@@ -1,21 +1,22 @@
 # macOS build and internal release
 
-This document describes the build path. It produced `FP Studio_0.3.11_aarch64.dmg` on **2026-09-20**: Developer ID
+This document describes the build path. It produced `FP Studio_0.3.12_aarch64.dmg` on **2026-09-21**: Developer ID
 signature (`Hyunmin kim (KH55W9G87F)`), **notarized (`Accepted`, submission
-`9950c3ba-9f8b-4e96-84bb-83681f3f7c47`) and stapled**, sha256
-`eac7fdebcc4833512f9404955d92ca6bc54534ce896559afb60bd7b419a32144`, published at
-https://github.com/FP-Validated/fp-studio/releases/tag/v0.3.11 . The 0.3.0 through 0.3.5 builds were notarized the
+`cfcc4261-cbb4-4984-938c-aac3fbde8599`) and stapled**, sha256
+`6abf6521b6926bda32ee81246e07ccbf281e435785b6a4cf34bec4d7691806b5`, published at
+https://github.com/FP-Validated/fp-studio/releases/tag/v0.3.12 . The 0.3.0 through 0.3.5 builds were notarized the
 same way and every DMG was withdrawn, because each shipped a frame that was wrong in what it showed - a broken
 attached-image redraw, clipped table cells, a collapsed table head, a bar grammar that could not hold a second
 series, a reproduce gate that could not see a value stored under a column the author named, and a reproduce gate a
-two-image turn could only get past by waiving it and composing from the web. 0.3.6 through 0.3.10 are withdrawn as
+two-image turn could only get past by waiving it and composing from the web. 0.3.6 through 0.3.11 are withdrawn as
 superseded: 0.3.6 could only draw dark and never asked, 0.3.7 could not fill a category node or name a category,
 0.3.8 re-sent four payloads the conversation had already paid for, 0.3.9 dropped the first message of every session
-- the one carrying the attachment and the light/dark declaration - and 0.3.10 drew the footer's `Source` on top of
-the FOUR PILLARS mark and its `Date as of` past the right edge of the frame. A copy carrying the browser's
-quarantine attribute reports `accepted - source=Notarized Developer ID` and validates its stapled ticket. Preserve
-the original OpenWorker GUI and run these gates on the actual target Mac; installation on a clean, separate Mac is
-untested.
+- the one carrying the attachment and the light/dark declaration - 0.3.10 drew the footer's `Source` on top of the
+FOUR PILLARS mark and its `Date as of` past the right edge of the frame, and 0.3.11 counted an attached
+screenshot's base64 as ~367,000 tokens, so a brand-new session compacted its own first turn and the model lost the
+image it had been asked to redraw. A copy carrying the browser's quarantine attribute reports `accepted -
+source=Notarized Developer ID` and validates its stapled ticket. Preserve the original OpenWorker GUI and run these
+gates on the actual target Mac; installation on a clean, separate Mac is untested.
 
 ## 1. Prepare and assemble
 

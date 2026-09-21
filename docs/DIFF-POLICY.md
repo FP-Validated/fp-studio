@@ -36,6 +36,18 @@ Allowed changes:
   transcribes it nor records the user's own words in `referenceWaiver`.
 - Serve the per-grammar design rules back at `fp_review` as an addressable checklist, and refuse
   `fp_publish` until every rule has a verdict. Same stock tools, same chat — no review screen.
+- Price an attachment in the auto-compaction estimate at what a vision/file call costs
+  (`IMAGE_TOKENS`, `FILE_TOKENS`) instead of at the length of its base64, carry the newest
+  `CARRY_IMAGES` reference images across the compaction boundary with the block, let a token cap the
+  user typed raise the trigger for a model whose context window is not in the matrix
+  (`cap_explicit`), and report why a summarizer call failed — in the log, in the notice and in the
+  Retry/Trim prompt — with a pause before the single retry. A 1.1 MB screenshot is ~1.47 M base64
+  characters, which chars/4 read as ~367 k tokens: a brand-new session compacted itself on its first
+  turn, 3.6x "over" a 102,400 trigger it was using ~1,200 tokens of, the boundary landed after the
+  user's only message, and the summary of the picture the user asked to have redrawn was the word
+  "[image]". The model then worked blind and the trim notice repeated on every turn that carried an
+  image. The trigger policy, the boundary rules and the spec'd Settings overrides are otherwise
+  unchanged.
 
 Not allowed without a new explicit product decision:
 - Replacing App, Sidebar, Composer, Transcript, RightRail or artifact viewer.

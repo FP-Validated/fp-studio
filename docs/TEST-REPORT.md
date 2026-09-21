@@ -481,6 +481,87 @@ Assembled into `/Users/steve/Developer/fp-studio-release-0.3.11` from the pinned
 
 Still not run: a live-provider conversation in this build, and installation on a separate clean Mac.
 
+## 2026-09-21 — 0.3.12: a screenshot read as 367,000 tokens, so the first turn compacted itself
+
+Reported: `Context trimmed — oldest turns dropped (summary unavailable)` kept appearing, and the
+`Context compaction failed — the summarizer couldn't condense this session's history` prompt came up
+in a conversation that had **just started**. In the same conversation the agent then asked the user
+to confirm a figure it had supposedly copied off the attached image ("Asia: 1697 validators") and
+asked which of three screenshots taken that morning it should use — while the image was attached to
+the message it was answering.
+
+One cause. `compaction.estimate_tokens` serialized each message and divided by four, and an
+attachment travels as a `data:` URL inside an `image_url` content part (`attachments.py:35-61`).
+Measured on the reported size, a 1.1 MB PNG:
+
+| | |
+|---|---:|
+| base64 characters in the data URL | 1,466,672 |
+| `estimate_tokens` of `[system, user+image]` | **367,816** |
+| trigger — no MATRIX entry for the model, so `min(0.8 × 128,000, cap)` | **102,400** |
+| what that turn actually costs the model (image ≈ 1,600 + text) | ≈ 1,800 |
+| outbound estimate AFTER the compaction it forced | **1,242** |
+
+So compaction fired 3.6× "over" a threshold the session was using about 1% of. `pick_boundary`
+returned 2 — the earliest legal boundary once one assistant message exists — so the span was
+`[system, user]`: the user's only message. `_text_of` renders an image as the literal string
+`[image]` (`compaction.py:269-280`), which is then the model's entire memory of the picture it was
+asked to redraw. Verified by running the real functions on that message list: `image still visible
+to the model: False`. Every later turn that carried an image did the same thing, which is what made
+the notice repeat; when the summarizer call itself also failed, the bare `except Exception`
+(`engine.py:664`) discarded the reason, logged nothing, and put an unexplained Retry/Trim dialog on
+screen.
+
+Four changes, all in the pinned upstream files, declared in `docs/DIFF-POLICY.md`:
+
+1. `estimate_tokens` prices content parts: text by chars/4, an `image_url` data URL at
+   `IMAGE_TOKENS` (1,600 — Anthropic's ceiling for a full-size image), a `file` data URL at
+   `FILE_TOKENS`. Four megabytes of the same picture now costs the same as one.
+2. `apply_to_outbound` carries the newest `CARRY_IMAGES` (2) reference images across the boundary
+   with the compacted block, pulled from the canonical list at outbound time, so nothing is stored
+   twice and the block stays byte-stable for prompt caching.
+3. `trigger_tokens(..., cap_explicit=True)`: with no verified context window the 128,000 default is
+   a guess and `min` can only lower a guess, so the Settings token cap was inert — typing 1,000,000
+   still compacted at 102,400. A cap the user typed now sets the trigger; a verified window still
+   wins.
+4. The summarizer failure reason is kept: `logging.warning` in the sidecar log, appended to the
+   trim notice, and shown in the Retry/Trim prompt — plus a 1.5 s pause before the single retry,
+   because the common cause is a 429 and an instant retry lands in the same window.
+
+| Check | Result |
+|---|---|
+| New regression file `tests/test_compaction_attachments.py` | 10 tests; **9 fail on the previous commit** — the headline one reports `a brand-new session estimated 366,733 tokens against a 102,400 trigger` |
+| Engine end-to-end | after a forced compaction, `engine._outbound_messages()` still carries the attached image and the `<compacted-history>` block |
+| Upstream compaction suites, unchanged | `tests/test_compaction.py` + `tests/test_compaction_engine.py` 31 passed |
+| Patch table | `scripts/regen_edits.py` → 274 hunks across 71 paths; a fresh assembly is byte-identical to the hand-edited tree for all four touched files |
+| Full assembled suite | 2,208 passed, 1 skipped |
+| The reported document, rendered through the installed 0.3.11 bundle | "Where Monad's Validators Run" (KPI row + region bar chart, dark) rendered clean at revision 1, the Asia sub-label edit committed revision 2, `layout.clipped` empty both times, footer correct — the render/publish path was not the defect; the wrong figure came from a model that could no longer see its source |
+| Publish path, re-read | `fp_publish` re-renders nothing: it exports the bytes committed for the requested revision (`store.publish` → `materialize(name, expected)`), and every `fp_render`/`fp_edit` runs the worker again, so a final PNG cannot be a stale copy of an earlier one |
+
+Known gap, unchanged by this build: `fp_render` refuses a clipped layout only for `role == 'footer'`
+(`tools/fp.py:543-553`). Clipping reported for any other role still commits.
+
+### Signed, notarized release build
+
+Assembled into `/Users/steve/Developer/fp-studio-release-0.3.12` from the pinned commits
+(openworker `5bc10d92`, fp-kit `17c89e71`), then `packaging/build_fp_studio_dmg.sh --release`.
+
+| Check | Result |
+|---|---|
+| Upstream GUI comparison | GUI files equal upstream + the declared edits; no undeclared change |
+| Python gate in the build tree (real resvg, real permission integration, supplied fonts) | 195 passed |
+| Full assembled suite, FP plus upstream | 2,208 passed, 1 skipped |
+| fp-kit `npm test` | 60 passed |
+| Original GUI unit tests + production build | passed, build succeeded |
+| Fork shell smoke E2E | 2 passed |
+| Notarization | submission `cfcc4261-cbb4-4984-938c-aac3fbde8599`, `status: Accepted`, stapled, `stapler validate` worked |
+| DMG | `FP Studio_0.3.12_aarch64.dmg`, 132,907,134 bytes, sha256 `6abf6521b6926bda32ee81246e07ccbf281e435785b6a4cf34bec4d7691806b5` |
+| Quarantined copy | `spctl -a -t open` → `accepted — source=Notarized Developer ID` |
+| Installed and launched | copied to `/Applications`, `spctl -a` → `accepted`, `CFBundleShortVersionString` 0.3.12, sidecar answered `/v1/health` with `{"status":"ok"}` |
+| **The fix is in the shipped binary** | `coworker.compaction` extracted from the bundled PyInstaller archive at `/Applications/FP Studio.app/Contents/Resources/sidecar`: `IMAGE_TOKENS`, `CARRY_IMAGES`, `cap_explicit`, `_part_chars`, `carried_images` and the carry-forward notice are present, and `coworker.engine` carries `_COMPACTION_RETRY_DELAY`, `_compaction_reason` and the failure log line |
+
+Still not run: a live-provider conversation in this build, and installation on a separate clean Mac.
+
 ## Reassembly equivalence
 
 `python scripts/assemble.py --dest /tmp/fp-verify-8 --openworker-source ~/Developer/fp-studio-v0.3
