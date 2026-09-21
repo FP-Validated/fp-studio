@@ -477,6 +477,7 @@ Assembled into `/Users/steve/Developer/fp-studio-release-0.3.11` from the pinned
 | **The band the user photographed, through the installed bundle** | the failing document (`note` 79 chars, `source` `X(@VitalikButerin)`, `dateAsOf`) rendered on `fp-kit/17c89e711220d1d44977a2a21ec0bfea41339b6a`: `Note` on its own line, `Source` and `Date as of` on the next, `layout.clipped` empty, nothing right of x=1544.57 — the mark starts at 1593 |
 | The reference frame's own note | the 171-character note renders in two lines, breaking after "ETHB operator" exactly as the reference does, with `Source` below it |
 | Both packs | `fp-v1` and `fp-v1-light` both correct in the shipped bundle; the light pack inherits the fixed chrome by `extends` |
+| Published asset re-downloaded | `gh release download v0.3.11` returned 175,099,942 bytes, sha256 identical to the built DMG; quarantined copy `accepted — source=Notarized Developer ID`, ticket validates |
 
 Still not run: a live-provider conversation in this build, and installation on a separate clean Mac.
 
